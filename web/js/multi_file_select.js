@@ -11,6 +11,15 @@ const GREEN = "#43a047";
 const INACTIVE_BG = "#2a2a2a";
 const INACTIVE_FG = "#888";
 
+// 5 champs de base + 2 champs optionnels ajoutes a la demande (bouton
+// "+"), un par un, chacun avec sa propre sortie ("Option 1", "Option 2").
+const BASE_FIELDS = 5;
+const MAX_FIELDS = 7;
+const OPTION_OUTPUT_NAMES = ["Option 1", "Option 2"];
+// Hauteur ajoutee au noeud par option : une ligne de champ (~26px) plus
+// une ligne de sortie sur le canvas (~20px).
+const OPTION_ROW_HEIGHT = 46;
+
 const SEARCH_ICON =
     '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" ' +
     'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
@@ -65,7 +74,8 @@ const HELP_SECTIONS = [
     {
         title: "CE QUE FAIT CE NOEUD",
         html:
-            "<p>Permet de choisir jusqu'a <b>5 fichiers</b> depuis un " +
+            "<p>Permet de choisir jusqu'a <b>5 fichiers</b> (7 avec les " +
+            "deux champs optionnels) depuis un " +
             "meme repertoire d'origine, sans avoir a taper les chemins " +
             "a la main. Chaque fichier choisi est range dans un champ " +
             "numerote (1 a 5), en chemin absolu ou relatif selon le " +
@@ -91,7 +101,8 @@ const HELP_SECTIONS = [
             "<li>Cliquez sur un dossier de la liste : il se place dans " +
             "<b>Repertoire selectionne</b>.</li>" +
             "<li>Choisissez le champ actif (boutons carres " +
-            "<b>1 2 3 4 5</b>) : c'est lui qui recevra le prochain " +
+            "<b>1 2 3 4 5</b>, plus <b>6</b> et <b>7</b> si les champs " +
+            "optionnels sont ajoutes) : c'est lui qui recevra le prochain " +
             "fichier selectionne.</li>" +
             "<li>Cliquez sur " + iconBadge(SEARCH_ICON, PINK) + " pour " +
             "lister les fichiers de ce dossier. Filtrez au besoin avec " +
@@ -124,13 +135,14 @@ const HELP_SECTIONS = [
             "(ecrasant leur contenu actuel, sans confirmation). Si un " +
             "numero est absent du fichier, ou si une des deux valeurs " +
             "est vide sur sa ligne, le champ concerne est simplement " +
-            "vide.</li>" +
+            "vide. Une ligne 6 ou 7 remplie ajoute automatiquement le " +
+            "champ optionnel correspondant s'il manque.</li>" +
             "</ul>",
     },
     {
         title: "CHAMPS NUMEROTES 1 A 5",
         html:
-            "<p>Les 5 boutons carres choisissent quel champ recevra la " +
+            "<p>Les boutons carres choisissent quel champ recevra la " +
             "prochaine selection. Un seul champ est actif a la fois.</p>" +
             "<p>Le contenu d'un champ est fige au moment ou vous " +
             "cliquez sur le fichier : si vous changez ensuite le mode " +
@@ -148,18 +160,37 @@ const HELP_SECTIONS = [
             "champ principal et son champ <b>Type</b>.</p>",
     },
     {
+        title: "CHAMPS OPTIONNELS 6 ET 7",
+        html:
+            "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">+</b>', PINK, true) +
+            ", sous les champs, ajoute un champ supplementaire, un seul " +
+            "a la fois : d'abord le champ <b>6</b> avec la sortie " +
+            "<b>Option 1</b>, puis au clic suivant le champ <b>7</b> " +
+            "avec la sortie <b>Option 2</b>. Le bouton disparait une " +
+            "fois les deux ajoutes.</p>" +
+            "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">&minus;</b>', "#6b2b2b", true) +
+            " retire le dernier champ ajoute, avec son contenu et sa " +
+            "sortie. Si cette sortie est connectee a un autre noeud, " +
+            "une confirmation est demandee avant de supprimer le(s) " +
+            "lien(s).</p>",
+    },
+    {
         title: "SORTIES",
         html:
             "<p><b>unused</b> (x5) &mdash; dans l'ordre, de haut en " +
             "bas, le chemin correspondant a chacun des champs 1 a 5.</p>" +
-            "<p><b>Type</b> &mdash; les 5 sorties sont de type " +
+            "<p><b>Option 1</b> / <b>Option 2</b> &mdash; presentes " +
+            "seulement si les champs optionnels 6 / 7 ont ete " +
+            "ajoutes.</p>" +
+            "<p><b>Type</b> &mdash; les sorties sont de type " +
             "<b>STRING</b> (chaine de caracteres), pas un type " +
             '"texte"/multiline particulier : n\'importe quel noeud ' +
             "attendant une entree STRING peut s'y brancher.</p>" +
             "<p><b>Renommer une sortie</b> &mdash; double-clic sur son " +
             "nom, a droite du noeud : un champ de saisie s'ouvre " +
             "(<b>Entree</b> ou clic ailleurs pour valider, <b>Echap</b> " +
-            "pour annuler, champ vide = nom par defaut <b>unused</b>). " +
+            "pour annuler, champ vide = nom par defaut, <b>unused</b> " +
+            "ou <b>Option N</b>). " +
             "Egalement possible via clic droit sur le noeud, puis " +
             "<b>Renommer la sortie \"...\"</b>. Dans les deux cas, cela change " +
             "uniquement l'etiquette affichee (ex. <b>Models</b>), pas " +
@@ -527,6 +558,94 @@ function buildFieldOverwriteConfirmOverlay(container) {
     };
 }
 
+/**
+ * Fenetre de confirmation simple (message + Annuler/Confirmer), meme
+ * famille visuelle que celle d'ecrasement de champ. Utilisee avant de
+ * retirer une option dont la sortie est connectee.
+ */
+function buildSimpleConfirmOverlay(container) {
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "transparent";
+    overlay.style.zIndex = "10001";
+    overlay.style.display = "none";
+    overlay.style.fontFamily = "sans-serif";
+
+    const card = document.createElement("div");
+    card.style.position = "fixed";
+    card.style.background = "#181818";
+    card.style.color = "#e6e6e6";
+    card.style.width = "min(300px, 90vw)";
+    card.style.borderRadius = "10px";
+    card.style.padding = "16px 18px";
+    card.style.boxShadow = "0 10px 40px rgba(0,0,0,0.5)";
+    card.style.border = "1px solid #2a2a2a";
+
+    const msg = document.createElement("div");
+    msg.style.fontSize = "12px";
+    msg.style.lineHeight = "1.5";
+    msg.style.marginBottom = "14px";
+    msg.style.whiteSpace = "pre-wrap";
+    card.appendChild(msg);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.display = "flex";
+    btnRow.style.gap = "8px";
+    btnRow.style.justifyContent = "flex-end";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.textContent = "Annuler";
+    cancelBtn.style.padding = "6px 12px";
+    cancelBtn.style.borderRadius = "6px";
+    cancelBtn.style.border = "none";
+    cancelBtn.style.background = "#2a2a2a";
+    cancelBtn.style.color = "#ddd";
+    cancelBtn.style.fontSize = "11px";
+    cancelBtn.style.cursor = "pointer";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.textContent = "Confirmer";
+    confirmBtn.style.padding = "6px 12px";
+    confirmBtn.style.borderRadius = "6px";
+    confirmBtn.style.border = "none";
+    confirmBtn.style.background = "#e0793c";
+    confirmBtn.style.color = "#fff";
+    confirmBtn.style.fontWeight = "700";
+    confirmBtn.style.fontSize = "11px";
+    confirmBtn.style.cursor = "pointer";
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(confirmBtn);
+    card.appendChild(btnRow);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    let currentOnResult = null;
+    function finish(result) {
+        const cb = currentOnResult;
+        overlay.style.display = "none";
+        currentOnResult = null;
+        if (cb) cb(result);
+    }
+    cancelBtn.addEventListener("click", () => finish(false));
+    confirmBtn.addEventListener("click", () => finish(true));
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) finish(false);
+    });
+
+    return {
+        show(message, onResult) {
+            msg.textContent = message;
+            currentOnResult = onResult;
+            overlay.style.display = "block";
+            positionCardNextToNode(card, container, 320);
+        },
+    };
+}
+
 function findWidget(node, name) {
     return node.widgets.find((w) => w.name === name);
 }
@@ -643,6 +762,11 @@ app.registerExtension({
             if (node.properties.fileOverwriteSkipConfirm === undefined) {
                 node.properties.fileOverwriteSkipConfirm = false;
             }
+            // Nombre de champs optionnels ajoutes (0 a 2), persiste avec
+            // le workflow.
+            if (node.properties.extraFields === undefined) {
+                node.properties.extraFields = 0;
+            }
 
             const originWidget = findWidget(node, "origin_dir");
             const selectedDirWidget = findWidget(node, "selected_dir");
@@ -654,6 +778,8 @@ app.registerExtension({
                 findWidget(node, "field_3"),
                 findWidget(node, "field_4"),
                 findWidget(node, "field_5"),
+                findWidget(node, "field_6"),
+                findWidget(node, "field_7"),
             ];
             const modelTypeWidgets = [
                 null,
@@ -662,12 +788,14 @@ app.registerExtension({
                 findWidget(node, "model_type_3"),
                 findWidget(node, "model_type_4"),
                 findWidget(node, "model_type_5"),
+                findWidget(node, "model_type_6"),
+                findWidget(node, "model_type_7"),
             ];
 
             hideWidget(node, originWidget);
             hideWidget(node, selectedDirWidget);
             hideWidget(node, outputModeWidget);
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= MAX_FIELDS; i++) {
                 hideWidget(node, fieldWidgets[i]);
                 hideWidget(node, modelTypeWidgets[i]);
             }
@@ -862,12 +990,14 @@ app.registerExtension({
             fieldSelectRow.style.display = "flex";
             fieldSelectRow.style.gap = "6px";
             fieldSelectRow.style.flex = "0 0 auto";
-            const fieldSelectButtons = [null, null, null, null, null, null];
-            for (let i = 1; i <= 5; i++) {
+            const fieldSelectButtons = new Array(MAX_FIELDS + 1).fill(null);
+            for (let i = 1; i <= MAX_FIELDS; i++) {
                 const b = document.createElement("button");
                 b.type = "button";
                 b.textContent = String(i);
-                b.title = `Champ ${i} actif`;
+                b.title = i > BASE_FIELDS
+                    ? `Champ ${i} actif (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
+                    : `Champ ${i} actif`;
                 b.style.flex = "1";
                 b.style.padding = "5px 0";
                 b.style.borderRadius = "8px";
@@ -976,7 +1106,7 @@ app.registerExtension({
 
             saveBtn.addEventListener("click", () => {
                 const lines = [];
-                for (let i = 1; i <= 5; i++) {
+                for (let i = 1; i <= fieldCount(); i++) {
                     const fieldValue = (fieldInputs[i].value || "").trim();
                     if (!fieldValue) continue;
                     const modelType = (modelTypeInputs[i].value || "").trim();
@@ -1048,12 +1178,15 @@ app.registerExtension({
                     const lines = text.split(/\r?\n/);
                     // Format attendu par ligne : "N - <model_type> :
                     // <field_N>" (celui produit par l'export ci-dessus).
-                    // Pour chaque numero 1 a 5 : cherche la ligne
+                    // Une ligne 6 ou 7 non vide ajoute automatiquement
+                    // l'option correspondante si elle manque.
+                    // Pour chaque numero 1 a 7 : cherche la ligne
                     // correspondante et coupe au premier ":" (le
                     // model_type ne doit pas en contenir). Numero absent du
                     // fichier, ou valeur vide de part et d'autre du ":" ->
                     // le(s) champ(s) concerne(s) reste(nt) simplement vide(s).
-                    for (let i = 1; i <= 5; i++) {
+                    const parsed = new Array(MAX_FIELDS + 1).fill(null);
+                    for (let i = 1; i <= MAX_FIELDS; i++) {
                         const re = new RegExp(`^\\s*${i}\\s*-\\s*(.*?)\\s*:\\s*(.*)$`);
                         let modelType = "";
                         let fieldValue = "";
@@ -1065,8 +1198,17 @@ app.registerExtension({
                                 break;
                             }
                         }
-                        setFieldValue(i, fieldValue);
-                        setModelTypeValue(i, modelType);
+                        parsed[i] = { modelType, fieldValue };
+                    }
+                    for (let i = MAX_FIELDS; i > BASE_FIELDS; i--) {
+                        if (parsed[i].fieldValue || parsed[i].modelType) {
+                            while (fieldCount() < i) addOption();
+                            break;
+                        }
+                    }
+                    for (let i = 1; i <= fieldCount(); i++) {
+                        setFieldValue(i, parsed[i].fieldValue);
+                        setModelTypeValue(i, parsed[i].modelType);
                     }
                     status.textContent = `Fichier importe : ${file.name}.`;
                 };
@@ -1135,11 +1277,11 @@ app.registerExtension({
             fieldsWrap.style.flexDirection = "column";
             fieldsWrap.style.gap = "4px";
             fieldsWrap.style.flex = "0 0 auto";
-            const fieldRows = [null, null, null, null, null, null];
-            const fieldInputs = [null, null, null, null, null, null];
-            const fieldBadges = [null, null, null, null, null, null];
-            const modelTypeInputs = [null, null, null, null, null, null];
-            for (let i = 1; i <= 5; i++) {
+            const fieldRows = new Array(MAX_FIELDS + 1).fill(null);
+            const fieldInputs = new Array(MAX_FIELDS + 1).fill(null);
+            const fieldBadges = new Array(MAX_FIELDS + 1).fill(null);
+            const modelTypeInputs = new Array(MAX_FIELDS + 1).fill(null);
+            for (let i = 1; i <= MAX_FIELDS; i++) {
                 const row = document.createElement("div");
                 row.style.display = "flex";
                 row.style.gap = "4px";
@@ -1173,7 +1315,12 @@ app.registerExtension({
                 modelTypeInput.style.width = "72px";
                 modelTypeInput.title = "Type de modele (auto, ex : diffusion_models)";
 
-                const input = makeTextInput(`Champ ${i}`, true);
+                const input = makeTextInput(
+                    i > BASE_FIELDS
+                        ? `Champ ${i} (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
+                        : `Champ ${i}`,
+                    true
+                );
                 input.style.width = "100%";
                 input.style.flex = "1";
 
@@ -1207,6 +1354,144 @@ app.registerExtension({
             container.appendChild(fieldsWrap);
 
             // --------------------------------------------------------
+            // Champs optionnels : "+" ajoute le champ suivant (6 puis 7)
+            // et sa sortie, "-" retire le dernier ajoute (confirmation si
+            // sa sortie est connectee).
+            // --------------------------------------------------------
+            const optionRow = document.createElement("div");
+            optionRow.style.display = "flex";
+            optionRow.style.gap = "6px";
+            optionRow.style.flex = "0 0 auto";
+
+            function makeRoundTextButton(text, bg) {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.textContent = text;
+                b.style.flex = "0 0 auto";
+                b.style.width = "22px";
+                b.style.height = "22px";
+                b.style.borderRadius = "50%";
+                b.style.border = "none";
+                b.style.background = bg;
+                b.style.color = "#fff";
+                b.style.fontWeight = "700";
+                b.style.fontSize = "14px";
+                b.style.lineHeight = "1";
+                b.style.cursor = "pointer";
+                b.style.padding = "0";
+                b.style.alignItems = "center";
+                b.style.justifyContent = "center";
+                return b;
+            }
+            const addOptionBtn = makeRoundTextButton("+", PINK);
+            const removeOptionBtn = makeRoundTextButton("\u2212", "#6b2b2b");
+            optionRow.appendChild(addOptionBtn);
+            optionRow.appendChild(removeOptionBtn);
+            container.appendChild(optionRow);
+
+            let removeConfirmOverlay = null;
+
+            function fieldCount() {
+                return BASE_FIELDS + (node.properties.extraFields || 0);
+            }
+
+            function minHeight() {
+                return MIN_HEIGHT + OPTION_ROW_HEIGHT * (node.properties.extraFields || 0);
+            }
+
+            // Aligne node.outputs sur le nombre de champs affiches :
+            // retire les sorties en trop (et leurs liens), ajoute celles
+            // qui manquent avec leur nom "Option N".
+            function syncOptionOutputs() {
+                if (!node.outputs) return;
+                const want = fieldCount();
+                while (node.outputs.length > want) {
+                    const idx = node.outputs.length - 1;
+                    node.disconnectOutput(idx);
+                    node.removeOutput(idx);
+                }
+                while (node.outputs.length < want) {
+                    const idx = node.outputs.length;
+                    node.addOutput(OPTION_OUTPUT_NAMES[idx - BASE_FIELDS], "*");
+                }
+            }
+
+            function updateOptionUI() {
+                const count = fieldCount();
+                for (let i = BASE_FIELDS + 1; i <= MAX_FIELDS; i++) {
+                    const shown = i <= count;
+                    fieldRows[i].style.display = shown ? "flex" : "none";
+                    fieldSelectButtons[i].style.display = shown ? "" : "none";
+                }
+                if (activeField > count) setActiveField(count);
+                if (count < MAX_FIELDS) {
+                    addOptionBtn.style.display = "flex";
+                    addOptionBtn.title = `Ajouter le champ ${count + 1} (sortie "${OPTION_OUTPUT_NAMES[count - BASE_FIELDS]}")`;
+                } else {
+                    addOptionBtn.style.display = "none";
+                }
+                if (count > BASE_FIELDS) {
+                    removeOptionBtn.style.display = "flex";
+                    removeOptionBtn.title = `Retirer le champ ${count} (sortie "${OPTION_OUTPUT_NAMES[count - BASE_FIELDS - 1]}")`;
+                } else {
+                    removeOptionBtn.style.display = "none";
+                }
+            }
+
+            function addOption() {
+                if (fieldCount() >= MAX_FIELDS) return;
+                node.properties.extraFields = (node.properties.extraFields || 0) + 1;
+                syncOptionOutputs();
+                updateOptionUI();
+                node.setSize([node.size[0], node.size[1] + OPTION_ROW_HEIGHT]);
+                node.setDirtyCanvas(true, true);
+            }
+
+            function removeOption() {
+                const i = fieldCount();
+                if (i <= BASE_FIELDS) return;
+                setFieldValue(i, "");
+                setModelTypeValue(i, "");
+                node.properties.extraFields -= 1;
+                syncOptionOutputs();
+                updateOptionUI();
+                node.setSize([node.size[0], Math.max(minHeight(), node.size[1] - OPTION_ROW_HEIGHT)]);
+                node.setDirtyCanvas(true, true);
+            }
+
+            addOptionBtn.addEventListener("click", () => {
+                addOption();
+                status.textContent = `Champ ${fieldCount()} ajoute.`;
+            });
+
+            removeOptionBtn.addEventListener("click", () => {
+                const i = fieldCount();
+                if (i <= BASE_FIELDS) return;
+                const out = node.outputs && node.outputs[i - 1];
+                const links = (out && out.links) ? out.links.length : 0;
+                const done = () => {
+                    removeOption();
+                    status.textContent = `Champ ${i} retire.`;
+                };
+                if (!links) {
+                    done();
+                    return;
+                }
+                if (!removeConfirmOverlay) {
+                    removeConfirmOverlay = buildSimpleConfirmOverlay(container);
+                }
+                const label = out.label || out.name;
+                removeConfirmOverlay.show(
+                    `La sortie "${label}" est connectee (${links} lien(s)).\n` +
+                    `Retirer le champ ${i} supprimera ce(s) lien(s) et videra le champ. Continuer ?`,
+                    (confirmed) => {
+                        if (confirmed) done();
+                        else status.textContent = `Retrait du champ ${i} annule.`;
+                    }
+                );
+            });
+
+            // --------------------------------------------------------
             // Champ actif (1 a 5) : determine quel champ recoit la
             // prochaine selection de fichier. Le numero en face du champ
             // (badge) suit le meme etat actif/inactif que le bouton de
@@ -1216,7 +1501,7 @@ app.registerExtension({
             let activeField = 1;
 
             function updateFieldSelectUI() {
-                for (let i = 1; i <= 5; i++) {
+                for (let i = 1; i <= MAX_FIELDS; i++) {
                     const isActive = i === activeField;
                     fieldSelectButtons[i].style.background = isActive ? PINK : INACTIVE_BG;
                     fieldSelectButtons[i].style.color = isActive ? "#fff" : INACTIVE_FG;
@@ -1231,7 +1516,7 @@ app.registerExtension({
                 updateFieldSelectUI();
             }
 
-            for (let i = 1; i <= 5; i++) {
+            for (let i = 1; i <= MAX_FIELDS; i++) {
                 fieldSelectButtons[i].addEventListener("click", () => setActiveField(i));
             }
             updateFieldSelectUI();
@@ -1504,7 +1789,7 @@ app.registerExtension({
             const onResize = node.onResize;
             node.onResize = function (size) {
                 if (size[0] < MIN_WIDTH) size[0] = MIN_WIDTH;
-                if (size[1] < MIN_HEIGHT) size[1] = MIN_HEIGHT;
+                if (size[1] < minHeight()) size[1] = minHeight();
                 return onResize ? onResize.apply(this, arguments) : undefined;
             };
 
@@ -1512,10 +1797,17 @@ app.registerExtension({
                 originInput.value = originWidget.value || "";
                 selectedDirInput.value = selectedDirWidget.value || "";
                 updateToggleUI(outputModeWidget.value || "Absolu");
-                for (let i = 1; i <= 5; i++) {
+                for (let i = 1; i <= MAX_FIELDS; i++) {
                     fieldInputs[i].value = fieldWidgets[i].value || "";
                     modelTypeInputs[i].value = modelTypeWidgets[i].value || "";
                 }
+                // Options ajoutees : relues depuis node.properties (rempli
+                // par configure() apres onNodeCreated), puis sorties
+                // realignees (un workflow d'avant les options n'en a pas).
+                const extra = Number(node.properties.extraFields) || 0;
+                node.properties.extraFields = Math.min(Math.max(extra, 0), MAX_FIELDS - BASE_FIELDS);
+                syncOptionOutputs();
+                updateOptionUI();
                 updateFieldSelectUI();
                 // Le "C" (Ne plus demander) est calcule une premiere fois
                 // a la creation du widget, avant que node.properties ne
@@ -1537,7 +1829,7 @@ app.registerExtension({
             };
 
             refreshFromWidgets();
-            node.setSize([Math.max(node.size[0], MIN_WIDTH), Math.max(node.size[1], MIN_HEIGHT)]);
+            node.setSize([Math.max(node.size[0], MIN_WIDTH), Math.max(node.size[1], minHeight())]);
             node.setDirtyCanvas(true, true);
 
             return r;

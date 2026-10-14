@@ -78,6 +78,15 @@ class MultiFileSelect:
                 "field_4": ("STRING", {"default": "", "multiline": False}),
                 "model_type_5": ("STRING", {"default": "", "multiline": False}),
                 "field_5": ("STRING", {"default": "", "multiline": False}),
+                # Champs optionnels 6 et 7 ("Option 1" / "Option 2") :
+                # toujours declares, mais affiches cote JS seulement
+                # quand l'utilisateur les ajoute (bouton "+"). Places en
+                # fin de liste pour que les workflows enregistres avant
+                # leur ajout retrouvent leurs valeurs a la meme position.
+                "model_type_6": ("STRING", {"default": "", "multiline": False}),
+                "field_6": ("STRING", {"default": "", "multiline": False}),
+                "model_type_7": ("STRING", {"default": "", "multiline": False}),
+                "field_7": ("STRING", {"default": "", "multiline": False}),
             },
         }
 
@@ -88,8 +97,11 @@ class MultiFileSelect:
     # 'run' plus bas) : le branchement peut donc quand meme echouer a
     # l'execution si le noeud en aval attend un tout autre type de
     # donnee (une image, un modele, ...) qu'une chaine.
-    RETURN_TYPES = (ANY_TYPE, ANY_TYPE, ANY_TYPE, ANY_TYPE, ANY_TYPE)
-    RETURN_NAMES = ("unused",) * 5
+    # Les sorties 6 et 7 ne sont presentes sur le noeud qu'une fois
+    # l'option correspondante ajoutee (gere cote JS) ; l'ordre des
+    # sorties ne change jamais, les liens restent donc sur le bon index.
+    RETURN_TYPES = (ANY_TYPE,) * 7
+    RETURN_NAMES = ("unused",) * 5 + ("Option 1", "Option 2")
     FUNCTION = "run"
     CATEGORY = "utils/file"
     DESCRIPTION = (
@@ -97,7 +109,8 @@ class MultiFileSelect:
         "fichiers (un par champ numerote de 1 a 5), chacun en chemin "
         "absolu ou relatif selon le mode actif au moment de sa "
         "selection, et retourne les 5 chemins resultants en sortie "
-        "(5 sorties nommees 'unused'). Ces sorties sont de type "
+        "(5 sorties nommees 'unused', plus 'Option 1' et 'Option 2' "
+        "si ces champs optionnels ont ete ajoutes). Ces sorties sont de type "
         "'joker' : elles se branchent sur n'importe quel type d'entree, "
         "mais la valeur transmise reste toujours une chaine de "
         "caracteres. Le nom de chaque sortie peut etre personnalise via "
@@ -120,6 +133,10 @@ class MultiFileSelect:
         field_4,
         model_type_5,
         field_5,
+        model_type_6="",
+        field_6="",
+        model_type_7="",
+        field_7="",
     ):
         return (
             (field_1 or "").strip(),
@@ -127,4 +144,6 @@ class MultiFileSelect:
             (field_3 or "").strip(),
             (field_4 or "").strip(),
             (field_5 or "").strip(),
+            (field_6 or "").strip(),
+            (field_7 or "").strip(),
         )
