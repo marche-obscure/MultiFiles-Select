@@ -4,6 +4,10 @@ A ComfyUI custom node that lets you pick up to **5 files** (7 with the two
 optional fields) from the same origin directory without typing paths by
 hand, and store each one in its own numbered field.
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="MultiFiles Select node in ComfyUI" width="385">
+</p>
+
 ## Installation
 
 1. Clone this repository into your `custom_nodes` folder:
@@ -101,3 +105,8 @@ workflow.
 ## License
 
 MIT License — Copyright (c) 2026 marche-obscure. See [LICENSE](LICENSE).
+
+Exception: the images in the `assets` folder (screenshots of the node) are
+© 2026 marche-obscure — All rights reserved. They may not be reused,
+modified or redistributed separately from MultiFiles Select without prior
+written permission.
