@@ -6,5 +6,5 @@ license = {text = "MIT"}
 
 [tool.comfy]
 PublisherId = "local-marche-obscure"
-DisplayName = "Multi File Select"
+DisplayName = "MultiFiles Select"
 Icon = ""

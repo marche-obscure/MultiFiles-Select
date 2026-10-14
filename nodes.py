@@ -89,13 +89,7 @@ class MultiFileSelect:
     # l'execution si le noeud en aval attend un tout autre type de
     # donnee (une image, un modele, ...) qu'une chaine.
     RETURN_TYPES = (ANY_TYPE, ANY_TYPE, ANY_TYPE, ANY_TYPE, ANY_TYPE)
-    RETURN_NAMES = (
-        "file_path_out_1",
-        "file_path_out_2",
-        "file_path_out_3",
-        "file_path_out_4",
-        "file_path_out_5",
-    )
+    RETURN_NAMES = ("unused",) * 5
     FUNCTION = "run"
     CATEGORY = "utils/file"
     DESCRIPTION = (
@@ -103,11 +97,12 @@ class MultiFileSelect:
         "fichiers (un par champ numerote de 1 a 5), chacun en chemin "
         "absolu ou relatif selon le mode actif au moment de sa "
         "selection, et retourne les 5 chemins resultants en sortie "
-        "(file_path_out_1 a file_path_out_5). Ces sorties sont de type "
+        "(5 sorties nommees 'unused'). Ces sorties sont de type "
         "'joker' : elles se branchent sur n'importe quel type d'entree, "
         "mais la valeur transmise reste toujours une chaine de "
         "caracteres. Le nom de chaque sortie peut etre personnalise via "
-        "un clic droit sur le noeud (menu 'Renommer la sortie ...')."
+        "un double-clic sur son nom, ou via un clic droit sur le noeud "
+        "(menu 'Renommer la sortie ...')."
     )
 
     def run(

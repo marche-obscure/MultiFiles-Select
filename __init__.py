@@ -94,7 +94,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "MultiFileSelect": "Multi File Select",
+    "MultiFileSelect": "MultiFiles Select",
 }
 
 # Le frontend (fichiers JS) se trouve dans le dossier web/js.

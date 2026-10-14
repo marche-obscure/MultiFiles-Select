@@ -16,7 +16,7 @@ own numbered field (1 to 5).
    ```
 
 2. Restart ComfyUI.
-3. In the node search menu, look for **Multi File Select** (category
+3. In the node search menu, look for **MultiFiles Select** (category
    `utils/file`).
 
 No extra Python dependency is required.
@@ -67,14 +67,17 @@ It is informative only and has no output.
 
 ## Outputs
 
-`file_path_out_1` to `file_path_out_5`: the path stored in each of the 5
-fields. These are "wildcard" outputs: they can be connected to any input
+Five outputs, all named `unused` by default: from top to bottom, the path
+stored in fields 1 to 5. These are "wildcard" outputs: they can be connected to any input
 type, not only STRING. The value passed at run time is always a string,
 though, so a connection can still fail at execution if the downstream node
 expects a completely different kind of data (an image, a model, ...).
 
-To rename an output label (e.g. `file_path_out_1` → `Models`),
-right-click the node and choose **Renommer la sortie "..."**. This only
+To rename an output label (e.g. `unused` → `Models`), **double-click its
+name** on the right side of the node and type the new one (**Enter** or a
+click elsewhere to validate, **Esc** to cancel, empty = back to `unused`).
+You can also right-click the node and choose **Renommer la sortie "..."**.
+This only
 changes what is shown on the canvas, not the technical name used at
 execution; the new label is saved with the workflow.
 

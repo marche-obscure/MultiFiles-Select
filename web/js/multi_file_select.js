@@ -150,19 +150,132 @@ const HELP_SECTIONS = [
     {
         title: "SORTIES",
         html:
-            "<p><b>file_path_out_1</b> a <b>file_path_out_5</b> " +
-            "&mdash; le chemin correspondant a chacun des 5 champs.</p>" +
+            "<p><b>unused</b> (x5) &mdash; dans l'ordre, de haut en " +
+            "bas, le chemin correspondant a chacun des champs 1 a 5.</p>" +
             "<p><b>Type</b> &mdash; les 5 sorties sont de type " +
             "<b>STRING</b> (chaine de caracteres), pas un type " +
             '"texte"/multiline particulier : n\'importe quel noeud ' +
             "attendant une entree STRING peut s'y brancher.</p>" +
-            "<p><b>Renommer une sortie</b> &mdash; clic droit sur le " +
-            "noeud, puis <b>Renommer la sortie \"...\"</b> : change " +
+            "<p><b>Renommer une sortie</b> &mdash; double-clic sur son " +
+            "nom, a droite du noeud : un champ de saisie s'ouvre " +
+            "(<b>Entree</b> ou clic ailleurs pour valider, <b>Echap</b> " +
+            "pour annuler, champ vide = nom par defaut <b>unused</b>). " +
+            "Egalement possible via clic droit sur le noeud, puis " +
+            "<b>Renommer la sortie \"...\"</b>. Dans les deux cas, cela change " +
             "uniquement l'etiquette affichee (ex. <b>Models</b>), pas " +
             "le nom technique utilise par ComfyUI pour l'execution. " +
             "Le nouveau nom est sauvegarde avec le workflow.</p>",
     },
 ];
+
+/**
+ * Zone (coordonnees locales au noeud) de l'etiquette de la sortie i :
+ * de 45% de la largeur du noeud jusqu'a son bord droit, sur la hauteur
+ * d'une ligne de slot centree sur le point de connexion.
+ */
+function outputLabelRect(node, i) {
+    const slotH = (window.LiteGraph && window.LiteGraph.NODE_SLOT_HEIGHT) || 20;
+    const dot = node.getConnectionPos(false, i);
+    const x = node.size[0] * 0.45;
+    return {
+        x: x,
+        y: dot[1] - node.pos[1] - slotH / 2,
+        w: node.size[0] - x,
+        h: slotH,
+    };
+}
+
+/** Index de la sortie dont l'etiquette est sous pos (local), sinon -1. */
+function hitOutputLabel(node, pos) {
+    if (!node.outputs || (node.flags && node.flags.collapsed)) return -1;
+    for (let i = 0; i < node.outputs.length; i++) {
+        const r = outputLabelRect(node, i);
+        if (pos[0] >= r.x && pos[0] <= r.x + r.w &&
+            pos[1] >= r.y && pos[1] <= r.y + r.h) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+let activeOutputEditor = null;
+
+/**
+ * Ouvre un champ de saisie par-dessus l'etiquette de la sortie i.
+ * Entree / clic ailleurs : valide (vide = retour au nom par defaut).
+ * Echap : annule. Ne modifie que node.outputs[i].label.
+ */
+function openOutputLabelEditor(node, i) {
+    if (activeOutputEditor) activeOutputEditor.close(true);
+    const out = node.outputs[i];
+    const ds = app.canvas.ds;
+    const scale = ds.scale || 1;
+    const canvasRect = app.canvas.canvas.getBoundingClientRect();
+    const r = outputLabelRect(node, i);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = out.label || out.name;
+    input.placeholder = out.name;
+    Object.assign(input.style, {
+        position: "fixed",
+        left: canvasRect.left + (node.pos[0] + r.x + ds.offset[0]) * scale + "px",
+        top: canvasRect.top + (node.pos[1] + r.y + ds.offset[1]) * scale + "px",
+        width: r.w * scale + "px",
+        height: r.h * scale + "px",
+        zIndex: "10000",
+        background: "#1f1f1f",
+        color: "#e6e6e6",
+        border: Math.max(1, 2 * scale) + "px solid " + PINK,
+        borderRadius: "3px",
+        padding: "0 " + 6 * scale + "px",
+        font: 12 * scale + "px sans-serif",
+        textAlign: "right",
+        outline: "none",
+        boxSizing: "border-box",
+    });
+    document.body.appendChild(input);
+
+    let closed = false;
+    const editor = { node: node };
+    // Capture au niveau window : les raccourcis du canvas (Ctrl+Z,
+    // Suppr, ...) ne doivent pas partir pendant la saisie.
+    const onKey = (e) => {
+        if (e.target !== input) return;
+        e.stopImmediatePropagation();
+        if (e.key === "Enter") {
+            e.preventDefault();
+            editor.close(true);
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            editor.close(false);
+        }
+    };
+    const onBlur = () => editor.close(true);
+    editor.close = (save) => {
+        if (closed) return;
+        closed = true;
+        window.removeEventListener("keydown", onKey, true);
+        input.removeEventListener("blur", onBlur);
+        if (save) {
+            out.label = input.value.trim() || undefined;
+            node.setDirtyCanvas(true, true);
+        }
+        input.remove();
+        if (activeOutputEditor === editor) activeOutputEditor = null;
+    };
+    window.addEventListener("keydown", onKey, true);
+    activeOutputEditor = editor;
+
+    // Focus differe : le double-clic en cours de propagation rendrait
+    // sinon le focus au canvas, fermant le champ aussitot ouvert.
+    setTimeout(() => {
+        if (closed) return;
+        input.focus();
+        input.select();
+        input.addEventListener("blur", onBlur);
+    }, 0);
+}
 
 /**
  * Positionne une carte flottante ("fixed") contre le bord droit du noeud
@@ -227,7 +340,7 @@ function buildHelpOverlay(container) {
     breadcrumb.style.fontWeight = "700";
     breadcrumb.style.marginBottom = "4px";
     const title = document.createElement("div");
-    title.textContent = "Multi File Select";
+    title.textContent = "MultiFiles Select";
     title.style.fontSize = "20px";
     title.style.fontWeight = "700";
     titleWrap.appendChild(breadcrumb);
@@ -1433,10 +1546,29 @@ app.registerExtension({
         // ------------------------------------------------------------
         // Renommer une sortie (clic droit sur le noeud) : ne change que
         // l'etiquette affichee sur le canvas (node.outputs[i].label),
-        // jamais le nom technique (file_path_out_1 a _4) utilise par
+        // jamais le nom technique ("unused") utilise par
         // ComfyUI pour l'execution du workflow. Persiste avec le
         // workflow sauvegarde (les outputs sont serialises tels quels).
         // ------------------------------------------------------------
+        // Meme renommage, directement par double-clic sur le nom d'une
+        // sortie (comme sur le noeud Switch Pixaroma) : un <input>
+        // temporaire est pose par-dessus l'etiquette sur le canvas.
+        const onDblClick = nodeType.prototype.onDblClick;
+        nodeType.prototype.onDblClick = function (e, pos) {
+            const r = onDblClick ? onDblClick.apply(this, arguments) : undefined;
+            const i = hitOutputLabel(this, pos);
+            if (i >= 0) openOutputLabelEditor(this, i);
+            return r;
+        };
+
+        const onRemoved = nodeType.prototype.onRemoved;
+        nodeType.prototype.onRemoved = function () {
+            if (activeOutputEditor && activeOutputEditor.node === this) {
+                activeOutputEditor.close(false);
+            }
+            return onRemoved ? onRemoved.apply(this, arguments) : undefined;
+        };
+
         const onExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
         nodeType.prototype.getExtraMenuOptions = function (canvas, options) {
             const r = onExtraMenuOptions
