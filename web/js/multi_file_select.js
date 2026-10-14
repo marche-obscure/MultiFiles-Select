@@ -177,11 +177,18 @@ const HELP_SECTIONS = [
             "<p><b>Type</b> &mdash; the outputs are \"wildcard\" " +
             "outputs: they connect to any input type, but the value " +
             "passed is always a string.</p>" +
+            "<p><b>Automatic name</b> &mdash; when a file is selected, " +
+            "each output takes the text of the <b>Type</b> field of its " +
+            "row (e.g. <b>diffusion_models</b>), and follows it if you " +
+            "edit that Type by hand. Identical Types are numbered in " +
+            "output order: <b>loras (1)</b>, <b>loras (2)</b>. An empty " +
+            "Type gives back the default name.</p>" +
             "<p><b>Rename an output</b> &mdash; double-click its name on " +
             "the right side of the node: an input box opens " +
             "(<b>Enter</b> or a click elsewhere to validate, <b>Esc</b> " +
-            "to cancel, empty = default name, <b>unused N</b> or " +
-            "<b>Option N</b>). Also available by right-clicking the " +
+            "to cancel). A name typed by hand is kept: the automatic " +
+            "name no longer replaces it. Clear the name to go back to " +
+            "the automatic name. Also available by right-clicking the " +
             "node, then <b>Rename output \"...\"</b>. Either way, only " +
             "the displayed label changes (e.g. <b>Models</b>), not the " +
             "technical name ComfyUI uses at execution. The new name is " +
@@ -220,6 +227,29 @@ function hitOutputLabel(node, pos) {
 }
 
 let activeOutputEditor = null;
+
+/**
+ * Renommage manuel de la sortie i (index 0) : un nom saisi a la main
+ * est marque "manuel" (node.properties.manualLabels) et n'est plus
+ * ecrase par le nommage automatique d'apres le champ Type ; un nom vide
+ * retire la marque et rend la sortie au nommage automatique. Valider
+ * sans rien changer ne fait rien.
+ */
+function setManualOutputLabel(node, i, value) {
+    const out = node.outputs[i];
+    const trimmed = (value || "").trim();
+    if (trimmed === (out.label || out.name)) return;
+    if (!node.properties.manualLabels) node.properties.manualLabels = {};
+    if (trimmed) {
+        out.label = trimmed;
+        node.properties.manualLabels[i + 1] = true;
+    } else {
+        out.label = undefined;
+        delete node.properties.manualLabels[i + 1];
+    }
+    if (node.__mfsApplyAutoLabels) node.__mfsApplyAutoLabels();
+    node.setDirtyCanvas(true, true);
+}
 
 /**
  * Ouvre un champ de saisie par-dessus l'etiquette de la sortie i.
@@ -278,10 +308,7 @@ function openOutputLabelEditor(node, i) {
         closed = true;
         window.removeEventListener("keydown", onKey, true);
         input.removeEventListener("blur", onBlur);
-        if (save) {
-            out.label = input.value.trim() || undefined;
-            node.setDirtyCanvas(true, true);
-        }
+        if (save) setManualOutputLabel(node, i, input.value);
         input.remove();
         if (activeOutputEditor === editor) activeOutputEditor = null;
     };
@@ -756,6 +783,11 @@ app.registerExtension({
             // le workflow.
             if (node.properties.extraFields === undefined) {
                 node.properties.extraFields = 0;
+            }
+            // Sorties renommees a la main ({numero de champ: true}) :
+            // exclues du nommage automatique d'apres le champ Type.
+            if (node.properties.manualLabels === undefined) {
+                node.properties.manualLabels = {};
             }
 
             const originWidget = findWidget(node, "origin_dir");
@@ -1333,6 +1365,7 @@ app.registerExtension({
 
                 modelTypeInput.addEventListener("input", () => {
                     modelTypeWidgets[i].value = modelTypeInput.value;
+                    applyAutoLabels();
                 });
 
                 clearBtn.addEventListener("click", () => {
@@ -1443,7 +1476,9 @@ app.registerExtension({
                 setFieldValue(i, "");
                 setModelTypeValue(i, "");
                 node.properties.extraFields -= 1;
+                if (node.properties.manualLabels) delete node.properties.manualLabels[i];
                 syncOptionOutputs();
+                applyAutoLabels();
                 updateOptionUI();
                 node.setSize([node.size[0], Math.max(minHeight(), node.size[1] - OPTION_ROW_HEIGHT)]);
                 node.setDirtyCanvas(true, true);
@@ -1519,7 +1554,42 @@ app.registerExtension({
             function setModelTypeValue(i, value) {
                 modelTypeWidgets[i].value = value;
                 modelTypeInputs[i].value = value;
+                applyAutoLabels();
             }
+
+            // --------------------------------------------------------
+            // Nom automatique des sorties : chaque sortie prend le texte
+            // du champ Type de sa ligne (champ i -> sortie i-1). Types
+            // identiques -> tous indices dans l'ordre des sorties
+            // ("loras (1)", "loras (2)"). Type vide -> nom par defaut.
+            // Les sorties renommees a la main (manualLabels) ne sont ni
+            // modifiees ni comptees.
+            // --------------------------------------------------------
+            function applyAutoLabels() {
+                if (!node.outputs) return;
+                const manual = node.properties.manualLabels || {};
+                const count = Math.min(fieldCount(), node.outputs.length);
+                const types = [];
+                const totals = {};
+                for (let i = 1; i <= count; i++) {
+                    const t = manual[i] ? "" : (modelTypeWidgets[i].value || "").trim();
+                    types[i] = t;
+                    if (t) totals[t] = (totals[t] || 0) + 1;
+                }
+                const seen = {};
+                for (let i = 1; i <= count; i++) {
+                    if (manual[i]) continue;
+                    const t = types[i];
+                    let label;
+                    if (t) {
+                        seen[t] = (seen[t] || 0) + 1;
+                        label = totals[t] > 1 ? `${t} (${seen[t]})` : t;
+                    }
+                    node.outputs[i - 1].label = label;
+                }
+                node.setDirtyCanvas(true, true);
+            }
+            node.__mfsApplyAutoLabels = applyAutoLabels;
 
             // --------------------------------------------------------
             // Rendu de la liste des dossiers/fichiers
@@ -1812,8 +1882,19 @@ app.registerExtension({
             }
 
             const onConfigure = node.onConfigure;
-            node.onConfigure = function () {
+            node.onConfigure = function (info) {
                 const ret = onConfigure ? onConfigure.apply(this, arguments) : undefined;
+                // Workflow enregistre avant le nommage automatique : les
+                // noms deja poses a la main sont marques "manuels" pour
+                // ne pas etre ecrases au prochain changement de Type.
+                if (!(info && info.properties && info.properties.manualLabels)) {
+                    node.properties.manualLabels = {};
+                    (node.outputs || []).forEach((out, k) => {
+                        if (out.label && out.label !== out.name) {
+                            node.properties.manualLabels[k + 1] = true;
+                        }
+                    });
+                }
                 refreshFromWidgets();
                 return ret;
             };
@@ -1869,9 +1950,7 @@ app.registerExtension({
                                 current
                             );
                             if (value === null) return;
-                            const trimmed = value.trim();
-                            out.label = trimmed || undefined;
-                            node.setDirtyCanvas(true, true);
+                            setManualOutputLabel(node, i, value);
                         },
                     });
                 });

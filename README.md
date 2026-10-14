@@ -87,10 +87,16 @@ is always a string, though, so a connection can still fail at execution if
 the downstream node expects a completely different kind of data (an image,
 a model, ...).
 
+**Automatic names**: when a file is selected, each output takes the text of
+the **Type** field of its row (e.g. `diffusion_models`), and follows it if
+you edit that Type by hand. Identical Types are numbered in output order:
+`loras (1)`, `loras (2)`. An empty Type gives back the default name.
+
 To rename an output label (e.g. `unused 1` → `Models`), **double-click its
 name** on the right side of the node and type the new one (**Enter** or a
-click elsewhere to validate, **Esc** to cancel, empty = back to the
-default name). You can also right-click the node and choose
+click elsewhere to validate, **Esc** to cancel). A name typed by hand is
+kept and no longer replaced by the automatic name; clear it to go back to
+the automatic name. You can also right-click the node and choose
 **Rename output "..."**. This only changes what is shown on the canvas,
 not the technical name used at execution; the new label is saved with the
 workflow.
