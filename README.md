@@ -75,15 +75,15 @@ saved with the workflow.
 
 ## Outputs
 
-Five outputs named `unused` by default: from top to bottom, the path
-stored in fields 1 to 5, plus **Option 1** and **Option 2** when the
+Five outputs named `unused 1` to `unused 5` by default: the path stored in
+fields 1 to 5 (the number matches the field), plus **Option 1** and **Option 2** when the
 optional fields are added. These are "wildcard" outputs: they can be
 connected to any input type, not only STRING. The value passed at run time
 is always a string, though, so a connection can still fail at execution if
 the downstream node expects a completely different kind of data (an image,
 a model, ...).
 
-To rename an output label (e.g. `unused` → `Models`), **double-click its
+To rename an output label (e.g. `unused 1` → `Models`), **double-click its
 name** on the right side of the node and type the new one (**Enter** or a
 click elsewhere to validate, **Esc** to cancel, empty = back to the
 default name). You can also right-click the node and choose

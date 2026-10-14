@@ -170,8 +170,8 @@ const HELP_SECTIONS = [
     {
         title: "OUTPUTS",
         html:
-            "<p><b>unused</b> (x5) &mdash; in order, from top to bottom, " +
-            "the path stored in fields 1 to 5.</p>" +
+            "<p><b>unused 1</b> to <b>unused 5</b> &mdash; the path " +
+            "stored in fields 1 to 5 (the number matches the field).</p>" +
             "<p><b>Option 1</b> / <b>Option 2</b> &mdash; present only " +
             "when optional fields 6 / 7 have been added.</p>" +
             "<p><b>Type</b> &mdash; the outputs are \"wildcard\" " +
@@ -180,7 +180,7 @@ const HELP_SECTIONS = [
             "<p><b>Rename an output</b> &mdash; double-click its name on " +
             "the right side of the node: an input box opens " +
             "(<b>Enter</b> or a click elsewhere to validate, <b>Esc</b> " +
-            "to cancel, empty = default name, <b>unused</b> or " +
+            "to cancel, empty = default name, <b>unused N</b> or " +
             "<b>Option N</b>). Also available by right-clicking the " +
             "node, then <b>Rename output \"...\"</b>. Either way, only " +
             "the displayed label changes (e.g. <b>Models</b>), not the " +
@@ -1828,7 +1828,7 @@ app.registerExtension({
         // ------------------------------------------------------------
         // Renommer une sortie (clic droit sur le noeud) : ne change que
         // l'etiquette affichee sur le canvas (node.outputs[i].label),
-        // jamais le nom technique ("unused") utilise par
+        // jamais le nom technique ("unused N") utilise par
         // ComfyUI pour l'execution du workflow. Persiste avec le
         // workflow sauvegarde (les outputs sont serialises tels quels).
         // ------------------------------------------------------------

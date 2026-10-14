@@ -101,7 +101,7 @@ class MultiFileSelect:
     # l'option correspondante ajoutee (gere cote JS) ; l'ordre des
     # sorties ne change jamais, les liens restent donc sur le bon index.
     RETURN_TYPES = (ANY_TYPE,) * 7
-    RETURN_NAMES = ("unused",) * 5 + ("Option 1", "Option 2")
+    RETURN_NAMES = tuple(f"unused {i}" for i in range(1, 6)) + ("Option 1", "Option 2")
     FUNCTION = "run"
     CATEGORY = "utils/file"
     DESCRIPTION = (
@@ -109,7 +109,7 @@ class MultiFileSelect:
         "(one per numbered field, 1 to 5), each as an absolute or "
         "relative path depending on the mode active when it was "
         "selected, and returns the resulting paths (5 outputs named "
-        "'unused', plus 'Option 1' and 'Option 2' when those optional "
+        "'unused 1' to 'unused 5', plus 'Option 1' and 'Option 2' when those optional "
         "fields have been added). These are wildcard outputs: they "
         "connect to any input type, but the value passed is always a "
         "string. Each output can be renamed by double-clicking its name, "
