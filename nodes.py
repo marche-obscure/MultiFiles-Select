@@ -105,17 +105,15 @@ class MultiFileSelect:
     FUNCTION = "run"
     CATEGORY = "utils/file"
     DESCRIPTION = (
-        "Parcourt un repertoire d'origine, permet de choisir jusqu'a 5 "
-        "fichiers (un par champ numerote de 1 a 5), chacun en chemin "
-        "absolu ou relatif selon le mode actif au moment de sa "
-        "selection, et retourne les 5 chemins resultants en sortie "
-        "(5 sorties nommees 'unused', plus 'Option 1' et 'Option 2' "
-        "si ces champs optionnels ont ete ajoutes). Ces sorties sont de type "
-        "'joker' : elles se branchent sur n'importe quel type d'entree, "
-        "mais la valeur transmise reste toujours une chaine de "
-        "caracteres. Le nom de chaque sortie peut etre personnalise via "
-        "un double-clic sur son nom, ou via un clic droit sur le noeud "
-        "(menu 'Renommer la sortie ...')."
+        "Browses an origin directory and lets you pick up to 5 files "
+        "(one per numbered field, 1 to 5), each as an absolute or "
+        "relative path depending on the mode active when it was "
+        "selected, and returns the resulting paths (5 outputs named "
+        "'unused', plus 'Option 1' and 'Option 2' when those optional "
+        "fields have been added). These are wildcard outputs: they "
+        "connect to any input type, but the value passed is always a "
+        "string. Each output can be renamed by double-clicking its name, "
+        "or by right-clicking the node ('Rename output ...' menu)."
     )
 
     def run(

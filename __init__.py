@@ -123,11 +123,11 @@ try:
         origin = request.rel_url.query.get("path", "").strip()
 
         if not origin:
-            return web.json_response({"error": "Chemin vide."}, status=400)
+            return web.json_response({"error": "Empty path."}, status=400)
 
         if not os.path.isdir(origin):
             return web.json_response(
-                {"error": f"Repertoire introuvable : {origin}"}, status=400
+                {"error": f"Directory not found: {origin}"}, status=400
             )
 
         dirs = []
@@ -156,17 +156,17 @@ try:
         subdir = request.rel_url.query.get("subdir", "").strip()
 
         if not origin:
-            return web.json_response({"error": "Repertoire d'origine vide."}, status=400)
+            return web.json_response({"error": "Empty origin directory."}, status=400)
 
         target = os.path.normpath(os.path.join(origin, subdir)) if subdir else origin
 
         origin_norm = os.path.normpath(origin)
         if os.path.commonpath([origin_norm, target]) != origin_norm:
-            return web.json_response({"error": "Chemin invalide."}, status=400)
+            return web.json_response({"error": "Invalid path."}, status=400)
 
         if not os.path.isdir(target):
             return web.json_response(
-                {"error": f"Repertoire introuvable : {target}"}, status=400
+                {"error": f"Directory not found: {target}"}, status=400
             )
 
         try:
@@ -192,7 +192,7 @@ try:
         """
         if sys.platform != "win32":
             return web.json_response(
-                {"error": "Cette fonction n'est disponible que sous Windows."},
+                {"error": "This feature is only available on Windows."},
                 status=400,
             )
 
@@ -205,7 +205,7 @@ try:
         script = f"""
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = "Selectionnez un repertoire"
+$dialog.Description = "Select a directory"
 $dialog.ShowNewFolderButton = $true
 {initial_line}
 $result = $dialog.ShowDialog()
@@ -273,7 +273,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {{
             comfyui_root = getattr(folder_paths, "base_path", "")
 
             candidates = [
-                ("Dossier ComfyUI (racine)", comfyui_root),
+                ("ComfyUI folder (root)", comfyui_root),
                 ("models", getattr(folder_paths, "models_dir", "")),
                 ("Models (Linker)", _linker_models_dir(comfyui_root)),
                 ("output", _safe_call(folder_paths, "get_output_directory")),
@@ -291,7 +291,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {{
         return web.json_response({"dirs": options})
 
 except Exception:
-    print("[ComfyUI-MultiFileSelect] Impossible d'enregistrer les routes API :")
+    print("[ComfyUI-MultiFileSelect] Could not register the API routes:")
     traceback.print_exc()
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]

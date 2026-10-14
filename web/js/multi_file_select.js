@@ -72,130 +72,120 @@ function iconBadge(icon, bg, round) {
 
 const HELP_SECTIONS = [
     {
-        title: "CE QUE FAIT CE NOEUD",
+        title: "WHAT THIS NODE DOES",
         html:
-            "<p>Permet de choisir jusqu'a <b>5 fichiers</b> (7 avec les " +
-            "deux champs optionnels) depuis un " +
-            "meme repertoire d'origine, sans avoir a taper les chemins " +
-            "a la main. Chaque fichier choisi est range dans un champ " +
-            "numerote (1 a 5), en chemin absolu ou relatif selon le " +
-            "mode actif au moment de la selection.</p>",
+            "<p>Lets you pick up to <b>5 files</b> (7 with the two " +
+            "optional fields) from the same origin directory, without " +
+            "typing paths by hand. Each chosen file is stored in a " +
+            "numbered field, as an absolute or relative path depending " +
+            "on the mode active when it was selected.</p>",
     },
     {
-        title: "COMMENT L'UTILISER",
+        title: "HOW TO USE IT",
         html:
             "<ul>" +
-            "<li>Le menu deroulant <b>Raccourci dossier ComfyUI...</b>, " +
-            "tout en haut, remplit instantanement <b>Repertoire " +
-            "d'origine</b> avec un dossier standard de l'installation " +
-            "(racine, models, output, input, temp, user, custom_nodes), " +
-            "plus <b>Models (Linker)</b> si un fichier " +
-            "extra_model_paths.yaml existe a la racine de ComfyUI.</li>" +
-            "<li>Sinon, collez le chemin complet du repertoire de " +
-            "depart dans <b>Repertoire d'origine</b> (ou utilisez " +
-            "l'icone " + iconBadge(GEAR_ICON, VIOLET) + " pour le " +
-            "choisir via l'explorateur Windows).</li>" +
-            "<li>Cliquez sur " + iconBadge(SEARCH_ICON, VIOLET) + " pour " +
-            "lister les sous-repertoires (seuls ceux contenant " +
-            "directement au moins un fichier sont affiches).</li>" +
-            "<li>Cliquez sur un dossier de la liste : il se place dans " +
-            "<b>Repertoire selectionne</b>.</li>" +
-            "<li>Choisissez le champ actif (boutons carres " +
-            "<b>1 2 3 4 5</b>, plus <b>6</b> et <b>7</b> si les champs " +
-            "optionnels sont ajoutes) : c'est lui qui recevra le prochain " +
-            "fichier selectionne.</li>" +
-            "<li>Cliquez sur " + iconBadge(SEARCH_ICON, PINK) + " pour " +
-            "lister les fichiers de ce dossier. Filtrez au besoin avec " +
-            "le menu d'extension (desactive automatiquement s'il n'y a " +
-            "qu'un seul type d'extension dans le dossier).</li>" +
-            "<li>Choisissez <b>Absolu</b> ou <b>Relatif</b>, puis " +
-            "cliquez sur un fichier : il est enregistre dans le champ " +
-            "actif, dans le format choisi, et le petit champ <b>Type</b> " +
-            "juste devant se remplit automatiquement si le chemin " +
-            'contient un dossier "models" (il recupere alors le nom du ' +
-            "dossier suivant, ex : <b>diffusion_models</b>). Ce champ " +
-            "reste modifiable a la main. Si le champ principal contient deja " +
-            "une valeur, une confirmation est demandee avant de " +
-            "l'ecraser, avec une case <b>Ne plus demander</b> pour " +
-            "desactiver cette confirmation. Tant qu'elle est " +
-            "desactivee, une icone " +
+            "<li>The <b>ComfyUI folder shortcut...</b> drop-down, at the " +
+            "top, instantly fills <b>Origin directory</b> with a standard " +
+            "folder of your installation (root, models, output, input, " +
+            "temp, user, custom_nodes), plus <b>Models (Linker)</b> when " +
+            "an extra_model_paths.yaml file exists at the ComfyUI " +
+            "root.</li>" +
+            "<li>Otherwise, paste the full path of the starting " +
+            "directory into <b>Origin directory</b> (or use " +
+            iconBadge(GEAR_ICON, VIOLET) + " to pick it with the Windows " +
+            "folder browser).</li>" +
+            "<li>Click " + iconBadge(SEARCH_ICON, VIOLET) + " to list the " +
+            "subdirectories (only those directly containing at least " +
+            "one file are shown).</li>" +
+            "<li>Click a folder in the list: it goes into <b>Selected " +
+            "directory</b>.</li>" +
+            "<li>Choose the active field (square buttons <b>1 2 3 4 " +
+            "5</b>, plus <b>6</b> and <b>7</b> when the optional fields " +
+            "are added): it receives the next selected file.</li>" +
+            "<li>Click " + iconBadge(SEARCH_ICON, PINK) + " to list the " +
+            "files of that folder. Filter them with the extension menu " +
+            "if needed (disabled automatically when the folder holds a " +
+            "single extension).</li>" +
+            "<li>Choose <b>Absolute</b> or <b>Relative</b>, then click a " +
+            "file: it is stored in the active field in that format, and " +
+            "the small <b>Type</b> field in front of it fills in " +
+            'automatically when the path contains a "models" folder (it ' +
+            "takes the name of the next folder, e.g. " +
+            "<b>diffusion_models</b>). That field stays editable by " +
+            "hand. If the main field already holds a value, a " +
+            "confirmation is asked before overwriting it, with a " +
+            "<b>Don't ask again</b> box to turn it off. While it is " +
+            "off, a " +
             iconBadge('<b style="color:#f0c98a;font-size:10px;">C</b>', "#5a3d1a", true) +
-            " apparait entre le bouton Absolu/Relatif et le bouton " +
-            "d'aide (?) pour la reactiver.</li>" +
-            "<li>" + iconBadge(DOWNLOAD_ICON, PINK, true) + " exporte un " +
-            "fichier .txt avec une ligne par champ numerote rempli (les " +
-            'champs vides sont ignores) : "N - Type : contenu du champ", ' +
-            'ex : "1 - diffusion_models : ' +
-            'MonDossier\\monfichier.safetensors".</li>' +
-            "<li>" + iconBadge(UPLOAD_ICON, PINK, true) + ", juste a " +
-            "cote, recharge un fichier .txt dans ce meme format pour " +
-            "remplir les champs automatiquement : pour chaque numero " +
-            "trouve, le champ <b>Type</b> et le champ principal " +
-            "correspondants sont remplis avec les valeurs lues " +
-            "(ecrasant leur contenu actuel, sans confirmation). Si un " +
-            "numero est absent du fichier, ou si une des deux valeurs " +
-            "est vide sur sa ligne, le champ concerne est simplement " +
-            "vide. Une ligne 6 ou 7 remplie ajoute automatiquement le " +
-            "champ optionnel correspondant s'il manque.</li>" +
+            " icon appears between the Absolute/Relative switch and " +
+            "the help button (?) to turn it back on.</li>" +
+            "<li>" + iconBadge(DOWNLOAD_ICON, PINK, true) + " exports a " +
+            ".txt file with one line per filled numbered field (empty " +
+            'fields are skipped): "N - Type : field content", e.g. ' +
+            '"1 - diffusion_models : MyFolder\\myfile.safetensors".</li>' +
+            "<li>" + iconBadge(UPLOAD_ICON, PINK, true) + ", right next " +
+            "to it, reloads a .txt file in the same format to fill the " +
+            "fields automatically: for each number found, the matching " +
+            "<b>Type</b> and main fields are filled with the values read " +
+            "(overwriting their content, without confirmation). If a " +
+            "number is missing from the file, or one of the two values " +
+            "is empty on its line, that field is simply cleared. A " +
+            "filled line 6 or 7 automatically adds the matching " +
+            "optional field if it is missing.</li>" +
             "</ul>",
     },
     {
-        title: "CHAMPS NUMEROTES 1 A 5",
+        title: "NUMBERED FIELDS 1 TO 5",
         html:
-            "<p>Les boutons carres choisissent quel champ recevra la " +
-            "prochaine selection. Un seul champ est actif a la fois.</p>" +
-            "<p>Le contenu d'un champ est fige au moment ou vous " +
-            "cliquez sur le fichier : si vous changez ensuite le mode " +
-            "<b>Absolu</b>/<b>Relatif</b> pour remplir un autre champ, " +
-            "les champs deja remplis gardent leur propre format.</p>" +
-            "<p>Chaque champ numerote est precede d'un petit champ " +
-            "<b>Type</b> : il se remplit automatiquement en cherchant " +
-            'un segment "models" dans le chemin (origine + ' +
-            "sous-repertoire) et en recuperant le nom du dossier qui le " +
-            "suit (ex : <b>diffusion_models</b>). Reste vide si aucun " +
-            "segment \"models\" n'est trouve, et modifiable a la main.</p>" +
-            "<p>Les 5 champs restent modifiables a la main si besoin. " +
-            "L'icone " + iconBadge(TRASH_ICON, "#6b2b2b") + " a droite " +
-            "de chaque champ vide immediatement (sans confirmation) le " +
-            "champ principal et son champ <b>Type</b>.</p>",
+            "<p>The square buttons choose which field receives the next " +
+            "selection. Only one field is active at a time.</p>" +
+            "<p>A field's content is fixed when you click the file: if " +
+            "you then switch between <b>Absolute</b> and " +
+            "<b>Relative</b> to fill another field, the fields already " +
+            "filled keep their own format.</p>" +
+            "<p>Each numbered field is preceded by a small <b>Type</b> " +
+            'field: it fills in automatically by looking for a "models" ' +
+            "segment in the path (origin + subdirectory) and taking the " +
+            "name of the folder that follows it (e.g. " +
+            "<b>diffusion_models</b>). It stays empty when no " +
+            '"models" segment is found, and can be edited by hand.</p>' +
+            "<p>The fields remain editable by hand if needed. " +
+            iconBadge(TRASH_ICON, "#6b2b2b") + " to the right of each " +
+            "field clears it immediately (without confirmation), along " +
+            "with its <b>Type</b> field.</p>",
     },
     {
-        title: "CHAMPS OPTIONNELS 6 ET 7",
+        title: "OPTIONAL FIELDS 6 AND 7",
         html:
             "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">+</b>', PINK, true) +
-            ", sous les champs, ajoute un champ supplementaire, un seul " +
-            "a la fois : d'abord le champ <b>6</b> avec la sortie " +
-            "<b>Option 1</b>, puis au clic suivant le champ <b>7</b> " +
-            "avec la sortie <b>Option 2</b>. Le bouton disparait une " +
-            "fois les deux ajoutes.</p>" +
+            ", below the fields, adds one extra field at a time: first " +
+            "field <b>6</b> with the <b>Option 1</b> output, then on the " +
+            "next click field <b>7</b> with the <b>Option 2</b> output. " +
+            "The button disappears once both are added.</p>" +
             "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">&minus;</b>', "#6b2b2b", true) +
-            " retire le dernier champ ajoute, avec son contenu et sa " +
-            "sortie. Si cette sortie est connectee a un autre noeud, " +
-            "une confirmation est demandee avant de supprimer le(s) " +
-            "lien(s).</p>",
+            " removes the last added field, with its content and its " +
+            "output. If that output is connected to another node, a " +
+            "confirmation is asked before deleting the link(s).</p>",
     },
     {
-        title: "SORTIES",
+        title: "OUTPUTS",
         html:
-            "<p><b>unused</b> (x5) &mdash; dans l'ordre, de haut en " +
-            "bas, le chemin correspondant a chacun des champs 1 a 5.</p>" +
-            "<p><b>Option 1</b> / <b>Option 2</b> &mdash; presentes " +
-            "seulement si les champs optionnels 6 / 7 ont ete " +
-            "ajoutes.</p>" +
-            "<p><b>Type</b> &mdash; les sorties sont de type " +
-            "<b>STRING</b> (chaine de caracteres), pas un type " +
-            '"texte"/multiline particulier : n\'importe quel noeud ' +
-            "attendant une entree STRING peut s'y brancher.</p>" +
-            "<p><b>Renommer une sortie</b> &mdash; double-clic sur son " +
-            "nom, a droite du noeud : un champ de saisie s'ouvre " +
-            "(<b>Entree</b> ou clic ailleurs pour valider, <b>Echap</b> " +
-            "pour annuler, champ vide = nom par defaut, <b>unused</b> " +
-            "ou <b>Option N</b>). " +
-            "Egalement possible via clic droit sur le noeud, puis " +
-            "<b>Renommer la sortie \"...\"</b>. Dans les deux cas, cela change " +
-            "uniquement l'etiquette affichee (ex. <b>Models</b>), pas " +
-            "le nom technique utilise par ComfyUI pour l'execution. " +
-            "Le nouveau nom est sauvegarde avec le workflow.</p>",
+            "<p><b>unused</b> (x5) &mdash; in order, from top to bottom, " +
+            "the path stored in fields 1 to 5.</p>" +
+            "<p><b>Option 1</b> / <b>Option 2</b> &mdash; present only " +
+            "when optional fields 6 / 7 have been added.</p>" +
+            "<p><b>Type</b> &mdash; the outputs are \"wildcard\" " +
+            "outputs: they connect to any input type, but the value " +
+            "passed is always a string.</p>" +
+            "<p><b>Rename an output</b> &mdash; double-click its name on " +
+            "the right side of the node: an input box opens " +
+            "(<b>Enter</b> or a click elsewhere to validate, <b>Esc</b> " +
+            "to cancel, empty = default name, <b>unused</b> or " +
+            "<b>Option N</b>). Also available by right-clicking the " +
+            "node, then <b>Rename output \"...\"</b>. Either way, only " +
+            "the displayed label changes (e.g. <b>Models</b>), not the " +
+            "technical name ComfyUI uses at execution. The new name is " +
+            "saved with the workflow.</p>",
     },
 ];
 
@@ -364,7 +354,7 @@ function buildHelpOverlay(container) {
 
     const titleWrap = document.createElement("div");
     const breadcrumb = document.createElement("div");
-    breadcrumb.textContent = "UTILS / FILE / MULTI FILE SELECT";
+    breadcrumb.textContent = "UTILS / FILE / MULTIFILES SELECT";
     breadcrumb.style.fontSize = "10px";
     breadcrumb.style.letterSpacing = "0.06em";
     breadcrumb.style.color = TITLE_COLOR;
@@ -478,7 +468,7 @@ function buildFieldOverwriteConfirmOverlay(container) {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     const checkLabel = document.createElement("span");
-    checkLabel.textContent = "Ne plus demander";
+    checkLabel.textContent = "Don't ask again";
     checkRow.appendChild(checkbox);
     checkRow.appendChild(checkLabel);
     card.appendChild(checkRow);
@@ -490,7 +480,7 @@ function buildFieldOverwriteConfirmOverlay(container) {
 
     const cancelBtn = document.createElement("button");
     cancelBtn.type = "button";
-    cancelBtn.textContent = "Annuler";
+    cancelBtn.textContent = "Cancel";
     cancelBtn.style.padding = "6px 12px";
     cancelBtn.style.borderRadius = "6px";
     cancelBtn.style.border = "none";
@@ -501,7 +491,7 @@ function buildFieldOverwriteConfirmOverlay(container) {
 
     const confirmBtn = document.createElement("button");
     confirmBtn.type = "button";
-    confirmBtn.textContent = "Confirmer";
+    confirmBtn.textContent = "Confirm";
     confirmBtn.style.padding = "6px 12px";
     confirmBtn.style.borderRadius = "6px";
     confirmBtn.style.border = "none";
@@ -547,8 +537,8 @@ function buildFieldOverwriteConfirmOverlay(container) {
     return {
         show(fieldNumber, path, onResult) {
             msg.textContent =
-                "Le champ " + fieldNumber + " contient deja une valeur. " +
-                "La remplacer par :\n" + path + " ?";
+                "Field " + fieldNumber + " already holds a value. " +
+                "Replace it with:\n" + path + " ?";
             msg.style.whiteSpace = "pre-wrap";
             checkbox.checked = false;
             currentOnResult = onResult;
@@ -596,7 +586,7 @@ function buildSimpleConfirmOverlay(container) {
 
     const cancelBtn = document.createElement("button");
     cancelBtn.type = "button";
-    cancelBtn.textContent = "Annuler";
+    cancelBtn.textContent = "Cancel";
     cancelBtn.style.padding = "6px 12px";
     cancelBtn.style.borderRadius = "6px";
     cancelBtn.style.border = "none";
@@ -607,7 +597,7 @@ function buildSimpleConfirmOverlay(container) {
 
     const confirmBtn = document.createElement("button");
     confirmBtn.type = "button";
-    confirmBtn.textContent = "Confirmer";
+    confirmBtn.textContent = "Confirm";
     confirmBtn.style.padding = "6px 12px";
     confirmBtn.style.borderRadius = "6px";
     confirmBtn.style.border = "none";
@@ -697,7 +687,7 @@ async function apiGet(url) {
         data = null;
     }
     if (!res.ok) {
-        const msg = (data && data.error) || `Erreur HTTP ${res.status}`;
+        const msg = (data && data.error) || `HTTP error ${res.status}`;
         throw new Error(msg);
     }
     return data;
@@ -856,11 +846,11 @@ app.registerExtension({
             originRow.style.display = "flex";
             originRow.style.gap = "4px";
             originRow.style.alignItems = "center";
-            const originInput = makeTextInput("Repertoire d'origine (full path)", false);
+            const originInput = makeTextInput("Origin directory (full path)", false);
             const originBtn = makeIconButton(VIOLET, SEARCH_ICON);
-            originBtn.title = "Lister les dossiers";
+            originBtn.title = "List folders";
             const originBrowseBtn = makeIconButton(VIOLET, GEAR_ICON);
-            originBrowseBtn.title = "Parcourir le PC...";
+            originBrowseBtn.title = "Browse...";
             originRow.appendChild(originInput);
             originRow.appendChild(originBrowseBtn);
             originRow.appendChild(originBtn);
@@ -874,7 +864,7 @@ app.registerExtension({
                 quickSelect.appendChild(opt);
                 quickSelect.value = "";
             }
-            setQuickPlaceholder("Raccourci dossier ComfyUI...");
+            setQuickPlaceholder("ComfyUI folder shortcut...");
 
             let quickDirsCache = [];
 
@@ -893,7 +883,7 @@ app.registerExtension({
                     const dirs = (data && data.dirs) || [];
                     if (dirs.length === 0) return;
                     quickDirsCache = dirs;
-                    rebuildQuickOptions("Raccourci dossier ComfyUI...");
+                    rebuildQuickOptions("ComfyUI folder shortcut...");
                     quickSelect.disabled = false;
                 })
                 .catch(() => {
@@ -905,8 +895,8 @@ app.registerExtension({
             function applyQuickDir(path) {
                 originInput.value = path;
                 originWidget.value = path;
-                status.textContent = "Repertoire choisi : " + path;
-                rebuildQuickOptions("Raccourci dossier ComfyUI...");
+                status.textContent = "Directory chosen: " + path;
+                rebuildQuickOptions("ComfyUI folder shortcut...");
             }
 
             quickSelect.addEventListener("change", () => {
@@ -920,9 +910,9 @@ app.registerExtension({
             selectedDirRow.style.display = "flex";
             selectedDirRow.style.gap = "4px";
             selectedDirRow.style.alignItems = "center";
-            const selectedDirInput = makeTextInput("Repertoire selectionne", false);
+            const selectedDirInput = makeTextInput("Selected directory", false);
             const selectedDirBtn = makeIconButton(PINK);
-            selectedDirBtn.title = "Lister les fichiers";
+            selectedDirBtn.title = "List files";
             selectedDirRow.appendChild(selectedDirInput);
             selectedDirRow.appendChild(selectedDirBtn);
             container.appendChild(selectedDirRow);
@@ -967,7 +957,7 @@ app.registerExtension({
             status.style.color = "#bfe9e3";
             status.style.padding = "0 2px";
             status.style.minHeight = "13px";
-            status.textContent = "Cliquez sur la loupe violette pour commencer.";
+            status.textContent = "Click the purple magnifier to start.";
             container.appendChild(status);
 
             // Fenetre de liste
@@ -996,8 +986,8 @@ app.registerExtension({
                 b.type = "button";
                 b.textContent = String(i);
                 b.title = i > BASE_FIELDS
-                    ? `Champ ${i} actif (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
-                    : `Champ ${i} actif`;
+                    ? `Field ${i} active (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
+                    : `Field ${i} active`;
                 b.style.flex = "1";
                 b.style.padding = "5px 0";
                 b.style.borderRadius = "8px";
@@ -1026,10 +1016,10 @@ app.registerExtension({
 
             const absBtn = document.createElement("button");
             absBtn.type = "button";
-            absBtn.textContent = "Absolu";
+            absBtn.textContent = "Absolute";
             const relBtn = document.createElement("button");
             relBtn.type = "button";
-            relBtn.textContent = "Relatif";
+            relBtn.textContent = "Relative";
             [absBtn, relBtn].forEach((b) => {
                 b.style.flex = "1";
                 b.style.padding = "7px 0";
@@ -1049,7 +1039,7 @@ app.registerExtension({
             fieldOverwriteCancelBtn.type = "button";
             fieldOverwriteCancelBtn.textContent = "C";
             fieldOverwriteCancelBtn.title =
-                "Reactiver la confirmation avant d'ecraser un champ deja rempli";
+                "Turn the confirmation back on before overwriting a filled field";
             fieldOverwriteCancelBtn.style.flex = "0 0 auto";
             fieldOverwriteCancelBtn.style.width = "26px";
             fieldOverwriteCancelBtn.style.height = "26px";
@@ -1075,7 +1065,7 @@ app.registerExtension({
             fieldOverwriteCancelBtn.addEventListener("click", () => {
                 node.properties.fileOverwriteSkipConfirm = false;
                 updateFieldOverwriteCancelBtn();
-                status.textContent = "Confirmation reactivee avant d'ecraser un champ.";
+                status.textContent = "Confirmation turned back on before overwriting a field.";
             });
 
             // Bouton "telechargement" : exporte dans un fichier .txt une
@@ -1088,7 +1078,7 @@ app.registerExtension({
             const saveBtn = document.createElement("button");
             saveBtn.type = "button";
             saveBtn.innerHTML = DOWNLOAD_ICON;
-            saveBtn.title = "Telecharger les champs remplis (.txt)";
+            saveBtn.title = "Download the filled fields (.txt)";
             saveBtn.style.flex = "0 0 auto";
             saveBtn.style.width = "26px";
             saveBtn.style.height = "26px";
@@ -1113,7 +1103,7 @@ app.registerExtension({
                     lines.push(`${i} - ${modelType} : ${fieldValue}`);
                 }
                 if (lines.length === 0) {
-                    status.textContent = "Aucun champ rempli a exporter.";
+                    status.textContent = "No filled field to export.";
                     return;
                 }
                 const text = lines.join("\n");
@@ -1121,12 +1111,12 @@ app.registerExtension({
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "multifileselect_champs.txt";
+                a.download = "multifileselect_fields.txt";
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                status.textContent = `Fichier exporte (${lines.length} champ(s)).`;
+                status.textContent = `File exported (${lines.length} field(s)).`;
             });
 
             // Bouton "televersement" : recharge un fichier .txt au meme
@@ -1146,7 +1136,7 @@ app.registerExtension({
             const uploadBtn = document.createElement("button");
             uploadBtn.type = "button";
             uploadBtn.innerHTML = UPLOAD_ICON;
-            uploadBtn.title = "Importer un fichier de champs (.txt)";
+            uploadBtn.title = "Import a fields file (.txt)";
             uploadBtn.style.flex = "0 0 auto";
             uploadBtn.style.width = "26px";
             uploadBtn.style.height = "26px";
@@ -1210,10 +1200,10 @@ app.registerExtension({
                         setFieldValue(i, parsed[i].fieldValue);
                         setModelTypeValue(i, parsed[i].modelType);
                     }
-                    status.textContent = `Fichier importe : ${file.name}.`;
+                    status.textContent = `File imported: ${file.name}.`;
                 };
                 reader.onerror = () => {
-                    status.textContent = "Erreur de lecture du fichier.";
+                    status.textContent = "Error reading the file.";
                 };
                 reader.readAsText(file);
             });
@@ -1221,7 +1211,7 @@ app.registerExtension({
             const helpBtn = document.createElement("button");
             helpBtn.type = "button";
             helpBtn.textContent = "?";
-            helpBtn.title = "Aide";
+            helpBtn.title = "Help";
             helpBtn.style.flex = "0 0 auto";
             helpBtn.style.width = "26px";
             helpBtn.style.height = "26px";
@@ -1313,19 +1303,19 @@ app.registerExtension({
                 const modelTypeInput = makeTextInput("Type", false);
                 modelTypeInput.style.flex = "0 0 72px";
                 modelTypeInput.style.width = "72px";
-                modelTypeInput.title = "Type de modele (auto, ex : diffusion_models)";
+                modelTypeInput.title = "Model type (auto, e.g. diffusion_models)";
 
                 const input = makeTextInput(
                     i > BASE_FIELDS
-                        ? `Champ ${i} (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
-                        : `Champ ${i}`,
+                        ? `Field ${i} (${OPTION_OUTPUT_NAMES[i - BASE_FIELDS - 1]})`
+                        : `Field ${i}`,
                     true
                 );
                 input.style.width = "100%";
                 input.style.flex = "1";
 
                 const clearBtn = makeIconButton("#6b2b2b", TRASH_ICON);
-                clearBtn.title = `Vider le champ ${i}`;
+                clearBtn.title = `Clear field ${i}`;
 
                 row.appendChild(badge);
                 row.appendChild(modelTypeInput);
@@ -1348,7 +1338,7 @@ app.registerExtension({
                 clearBtn.addEventListener("click", () => {
                     setFieldValue(i, "");
                     setModelTypeValue(i, "");
-                    status.textContent = `Champ ${i} vide.`;
+                    status.textContent = `Field ${i} cleared.`;
                 });
             }
             container.appendChild(fieldsWrap);
@@ -1426,13 +1416,13 @@ app.registerExtension({
                 if (activeField > count) setActiveField(count);
                 if (count < MAX_FIELDS) {
                     addOptionBtn.style.display = "flex";
-                    addOptionBtn.title = `Ajouter le champ ${count + 1} (sortie "${OPTION_OUTPUT_NAMES[count - BASE_FIELDS]}")`;
+                    addOptionBtn.title = `Add field ${count + 1} ("${OPTION_OUTPUT_NAMES[count - BASE_FIELDS]}" output)`;
                 } else {
                     addOptionBtn.style.display = "none";
                 }
                 if (count > BASE_FIELDS) {
                     removeOptionBtn.style.display = "flex";
-                    removeOptionBtn.title = `Retirer le champ ${count} (sortie "${OPTION_OUTPUT_NAMES[count - BASE_FIELDS - 1]}")`;
+                    removeOptionBtn.title = `Remove field ${count} ("${OPTION_OUTPUT_NAMES[count - BASE_FIELDS - 1]}" output)`;
                 } else {
                     removeOptionBtn.style.display = "none";
                 }
@@ -1461,7 +1451,7 @@ app.registerExtension({
 
             addOptionBtn.addEventListener("click", () => {
                 addOption();
-                status.textContent = `Champ ${fieldCount()} ajoute.`;
+                status.textContent = `Field ${fieldCount()} added.`;
             });
 
             removeOptionBtn.addEventListener("click", () => {
@@ -1471,7 +1461,7 @@ app.registerExtension({
                 const links = (out && out.links) ? out.links.length : 0;
                 const done = () => {
                     removeOption();
-                    status.textContent = `Champ ${i} retire.`;
+                    status.textContent = `Field ${i} removed.`;
                 };
                 if (!links) {
                     done();
@@ -1482,11 +1472,11 @@ app.registerExtension({
                 }
                 const label = out.label || out.name;
                 removeConfirmOverlay.show(
-                    `La sortie "${label}" est connectee (${links} lien(s)).\n` +
-                    `Retirer le champ ${i} supprimera ce(s) lien(s) et videra le champ. Continuer ?`,
+                    `The "${label}" output is connected (${links} link(s)).\n` +
+                    `Removing field ${i} will delete the link(s) and clear the field. Continue?`,
                     (confirmed) => {
                         if (confirmed) done();
-                        else status.textContent = `Retrait du champ ${i} annule.`;
+                        else status.textContent = `Removal of field ${i} cancelled.`;
                     }
                 );
             });
@@ -1582,7 +1572,7 @@ app.registerExtension({
                 const origin = originInput.value.trim();
                 const subdir = selectedDirInput.value.trim();
                 const mode = outputModeWidget.value || "Absolu";
-                status.textContent = `Enregistrement dans le champ ${activeField}...`;
+                status.textContent = `Saving into field ${activeField}...`;
                 try {
                     const url =
                         "/multifileselect/join_path?origin=" +
@@ -1601,7 +1591,7 @@ app.registerExtension({
                     const apply = () => {
                         setFieldValue(fieldToFill, newPath);
                         setModelTypeValue(fieldToFill, detectedModelType);
-                        status.textContent = `Champ ${fieldToFill} rempli (${mode}).`;
+                        status.textContent = `Field ${fieldToFill} filled (${mode === "Relatif" ? "Relative" : "Absolute"}).`;
                     };
 
                     const currentFieldValue = (fieldInputs[fieldToFill].value || "").trim();
@@ -1611,7 +1601,7 @@ app.registerExtension({
                         }
                         fieldOverwriteConfirmOverlay.show(fieldToFill, newPath, (confirmed, skip) => {
                             if (!confirmed) {
-                                status.textContent = `Remplacement du champ ${fieldToFill} annule.`;
+                                status.textContent = `Replacement of field ${fieldToFill} cancelled.`;
                                 return;
                             }
                             if (skip) {
@@ -1624,7 +1614,7 @@ app.registerExtension({
                         apply();
                     }
                 } catch (e) {
-                    status.textContent = "Erreur : " + e.message;
+                    status.textContent = "Error: " + e.message;
                 }
             }
 
@@ -1633,7 +1623,7 @@ app.registerExtension({
                 extSelect.innerHTML = "";
                 const opt = document.createElement("option");
                 opt.value = "";
-                opt.textContent = "Choisir le type d'extension...";
+                opt.textContent = "Choose the extension type...";
                 extSelect.appendChild(opt);
                 extSelect.value = "";
                 extSelect.disabled = true;
@@ -1651,7 +1641,7 @@ app.registerExtension({
                 extSelect.innerHTML = "";
                 const defaultOpt = document.createElement("option");
                 defaultOpt.value = "";
-                defaultOpt.textContent = "Choisir le type d'extension...";
+                defaultOpt.textContent = "Choose the extension type...";
                 extSelect.appendChild(defaultOpt);
                 sorted.forEach((ext) => {
                     const opt = document.createElement("option");
@@ -1668,13 +1658,13 @@ app.registerExtension({
             function applyExtensionFilter() {
                 const ext = extSelect.value;
                 if (!ext) {
-                    renderList(currentFiles, "Repertoire vide", onFilePick);
+                    renderList(currentFiles, "Empty directory", onFilePick);
                     return;
                 }
                 const filtered = currentFiles.filter((f) =>
                     f.toLowerCase().endsWith("." + ext)
                 );
-                renderList(filtered, `Aucun fichier .${ext}`, onFilePick);
+                renderList(filtered, `No .${ext} file`, onFilePick);
             }
 
             extSelect.addEventListener("change", applyExtensionFilter);
@@ -1684,7 +1674,7 @@ app.registerExtension({
             // Actions
             // --------------------------------------------------------
             originBrowseBtn.addEventListener("click", async () => {
-                status.textContent = "Ouverture de l'explorateur Windows...";
+                status.textContent = "Opening the Windows folder browser...";
                 originBrowseBtn.disabled = true;
                 originBrowseBtn.style.opacity = "0.5";
                 try {
@@ -1696,12 +1686,12 @@ app.registerExtension({
                     if (data.path) {
                         originInput.value = data.path;
                         originWidget.value = data.path;
-                        status.textContent = "Repertoire choisi : " + data.path;
+                        status.textContent = "Directory chosen: " + data.path;
                     } else {
-                        status.textContent = "Selection annulee.";
+                        status.textContent = "Selection cancelled.";
                     }
                 } catch (e) {
-                    status.textContent = "Erreur : " + e.message;
+                    status.textContent = "Error: " + e.message;
                 } finally {
                     originBrowseBtn.disabled = false;
                     originBrowseBtn.style.opacity = "1";
@@ -1711,11 +1701,11 @@ app.registerExtension({
             originBtn.addEventListener("click", async () => {
                 const origin = originInput.value.trim();
                 if (!origin) {
-                    status.textContent = "Indiquez d'abord un repertoire d'origine.";
+                    status.textContent = "Enter an origin directory first.";
                     return;
                 }
                 originWidget.value = origin;
-                status.textContent = "Chargement des dossiers...";
+                status.textContent = "Loading folders...";
                 clearExtensionOptions();
                 try {
                     const data = await apiGet(
@@ -1725,14 +1715,14 @@ app.registerExtension({
                     const dirs = data.dirs || [];
                     status.textContent =
                         dirs.length > 0
-                            ? `${dirs.length} dossier(s) trouve(s).`
-                            : "Aucun sous-repertoire avec fichiers.";
-                    renderList(dirs, "Aucun sous-repertoire avec fichiers.", (item) => {
+                            ? `${dirs.length} folder(s) found.`
+                            : "No subdirectory with files.";
+                    renderList(dirs, "No subdirectory with files.", (item) => {
                         selectedDirWidget.value = item;
                         selectedDirInput.value = item;
                     });
                 } catch (e) {
-                    status.textContent = "Erreur : " + e.message;
+                    status.textContent = "Error: " + e.message;
                     renderList([], e.message, () => {});
                 }
             });
@@ -1741,12 +1731,12 @@ app.registerExtension({
                 const origin = originInput.value.trim();
                 const subdir = selectedDirInput.value.trim();
                 if (!origin) {
-                    status.textContent = "Indiquez d'abord un repertoire d'origine.";
+                    status.textContent = "Enter an origin directory first.";
                     return;
                 }
                 originWidget.value = origin;
                 selectedDirWidget.value = subdir;
-                status.textContent = "Chargement des fichiers...";
+                status.textContent = "Loading files...";
                 try {
                     const url =
                         "/multifileselect/list_files?origin=" +
@@ -1759,10 +1749,10 @@ app.registerExtension({
                     currentFiles = files;
                     populateExtensionOptions(files);
                     status.textContent =
-                        files.length > 0 ? `${files.length} fichier(s) trouve(s).` : "Repertoire vide";
-                    renderList(files, "Repertoire vide", onFilePick);
+                        files.length > 0 ? `${files.length} file(s) found.` : "Empty directory";
+                    renderList(files, "Empty directory", onFilePick);
                 } catch (e) {
-                    status.textContent = "Erreur : " + e.message;
+                    status.textContent = "Error: " + e.message;
                     clearExtensionOptions();
                     renderList([], e.message, () => {});
                 }
@@ -1872,10 +1862,10 @@ app.registerExtension({
                 node.outputs.forEach((out, i) => {
                     const current = out.label || out.name;
                     options.push({
-                        content: "Renommer la sortie \"" + current + "\"...",
+                        content: "Rename output \"" + current + "\"...",
                         callback: () => {
                             const value = window.prompt(
-                                "Nouveau nom pour cette sortie :",
+                                "New name for this output:",
                                 current
                             );
                             if (value === null) return;
