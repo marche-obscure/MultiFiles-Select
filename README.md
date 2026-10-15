@@ -5,7 +5,7 @@ optional fields) from the same origin directory without typing paths by
 hand, and store each one in its own numbered field.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="MultiFiles Select node in ComfyUI" width="385">
+  <img src="assets/screenshot.png" alt="MultiFiles Select node and its help window in ComfyUI">
 </p>
 
 ## Installation
