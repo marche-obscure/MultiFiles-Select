@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { filterSections, findMatches, queryWords, pickLanguage, HELP_LANGUAGES } from "./help_search.js";
 
 const NODE_NAME = "MultiFileSelect";
 
@@ -70,131 +71,332 @@ function iconBadge(icon, bg, round) {
     );
 }
 
+// ------ Aide : icones des rubriques et petits blocs de mise en page ------
+const helpSvg = (inner, size) =>
+    '<svg viewBox="0 0 24 24" width="' + (size || 13) + '" height="' + (size || 13) + '" fill="none" ' +
+    'stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + inner + "</svg>";
+const START_ICON = helpSvg('<polygon points="6 4 20 12 6 20 6 4"></polygon>');
+const FOLDER_ICON = helpSvg('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>');
+const FIELDS_ICON = helpSvg(
+    '<line x1="9" y1="6" x2="20" y2="6"></line><line x1="9" y1="12" x2="20" y2="12"></line>' +
+    '<line x1="9" y1="18" x2="20" y2="18"></line><circle cx="4.5" cy="6" r="1"></circle>' +
+    '<circle cx="4.5" cy="12" r="1"></circle><circle cx="4.5" cy="18" r="1"></circle>');
+const TAG_ICON = helpSvg(
+    '<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"></path>' +
+    '<circle cx="7.5" cy="7.5" r="1.2"></circle>');
+const PLUS_ICON = helpSvg('<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>');
+const MINUS_ICON = helpSvg('<line x1="5" y1="12" x2="19" y2="12"></line>');
+const OUTPUT_ICON = helpSvg(
+    '<path d="M3 12h11"></path><polyline points="10 8 14 12 10 16"></polyline><circle cx="19" cy="12" r="2.5"></circle>');
+const INFO_ICON = helpSvg(
+    '<circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line>' +
+    '<line x1="12" y1="8" x2="12" y2="8"></line>');
+const GLOBE_ICON = helpSvg(
+    '<circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path>' +
+    '<path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"></path>', 14);
+const CLOSE_ICON = helpSvg('<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', 14);
+
+// Badges des boutons du noeud, tels qu'ils apparaissent a l'ecran.
+const B_GEAR = iconBadge(GEAR_ICON, VIOLET);
+const B_DIRS = iconBadge(SEARCH_ICON, VIOLET);
+const B_FILES = iconBadge(SEARCH_ICON, PINK);
+const B_DOWNLOAD = iconBadge(DOWNLOAD_ICON, PINK, true);
+const B_UPLOAD = iconBadge(UPLOAD_ICON, PINK, true);
+const B_TRASH = iconBadge(TRASH_ICON, "#6b2b2b");
+const B_PLUS = iconBadge(PLUS_ICON, PINK, true);
+const B_MINUS = iconBadge(MINUS_ICON, "#6b2b2b", true);
+const B_C = iconBadge('<b style="color:#f0c98a;font-size:10px;">C</b>', "#5a3d1a", true);
+const B_HELP = iconBadge('<b style="color:#bfe9e3;font-size:11px;">?</b>', "#0c3833", true);
+const B_FIELD = (n) => iconBadge('<b style="color:#fff;font-size:10px;">' + n + "</b>", PINK);
+
+const hList = (items) =>
+    '<ul style="margin:4px 0 10px;padding-left:18px">' +
+    items.map((t) => '<li style="margin:4px 0">' + t + "</li>").join("") + "</ul>";
+const hSteps = (items) => items.map((t, i) =>
+    '<div style="display:flex;gap:10px;align-items:flex-start;margin:0 0 8px">' +
+    '<span style="flex:0 0 auto;min-width:20px;height:20px;border-radius:50%;background:' + VIOLET +
+    ';color:white;font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center">' +
+    (i + 1) + "</span><span>" + t + "</span></div>").join("");
+const hTip = (t, label) =>
+    '<div style="border-left:3px solid ' + ORANGE + ';background:#241b15;color:#efcfb6;padding:6px 10px;' +
+    'margin:10px 0">💡 <b>' + (label || "Tip:") + "</b> " + t + "</div>";
+const hNote = (t, label) =>
+    '<div style="border-left:3px solid ' + VIOLET + ';background:#1c1a2b;color:#cfcaf2;padding:6px 10px;' +
+    'margin:10px 0"><b>' + (label || "Note:") + "</b> " + t + "</div>";
+/** Carte memo : rows = [[iconeHtml, texte], ...]. */
+const hCard = (title, rows) =>
+    '<div style="border:1px solid #2c2c2c;border-radius:8px;background:#161616;padding:8px 10px;margin:8px 0">' +
+    '<div style="color:#9fd6cf;font-weight:bold;margin-bottom:6px">' + title + "</div>" +
+    '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center">' +
+    rows.map(([icon, text]) => "<span>" + icon + "</span><span>" + text + "</span>").join("") +
+    "</div></div>";
+const hCode = (t) =>
+    '<pre style="background:#111;border:1px solid #2c2c2c;border-radius:6px;padding:8px;margin:6px 0 10px;' +
+    'font-size:11px;white-space:pre-wrap;color:#cfe">' + t + "</pre>";
+
+// Rubriques de l'aide : menu a gauche, une rubrique affichee a la fois.
 const HELP_SECTIONS = [
     {
-        title: "WHAT THIS NODE DOES",
-        html:
-            "<p>Lets you pick up to <b>5 files</b> (7 with the two " +
-            "optional fields) from the same origin directory, without " +
-            "typing paths by hand. Each chosen file is stored in a " +
-            "numbered field, as an absolute or relative path depending " +
-            "on the mode active when it was selected.</p>",
+        id: "start", title: "Quick start", icon: START_ICON, color: TITLE_COLOR,
+        html: hSteps([
+            "Fill <b>Origin directory</b>: pick a folder in <b>ComfyUI folder shortcut...</b>, paste a path, " +
+            "or browse with " + B_GEAR + ".",
+            "Click " + B_DIRS + " and choose a folder in the list, then click " + B_FILES + " to list its files.",
+            "Choose the active field (" + B_FIELD(1) + " to " + B_FIELD(5) + "), <b>Absolute</b> or " +
+            "<b>Relative</b>, then click a file: its path goes into that field and out on its output.",
+        ]) +
+        hCard("Buttons of the node", [
+            [B_GEAR, "Pick the origin directory with the Windows folder browser"],
+            [B_DIRS, "List the subfolders of the origin directory"],
+            [B_FILES, "List the files of the selected directory"],
+            [B_DOWNLOAD, "Export the filled fields (.txt)"],
+            [B_UPLOAD, "Import a fields file (.txt)"],
+            [B_TRASH, "Clear a field and its Type"],
+            [B_PLUS + " " + B_MINUS, "Add / remove the optional fields 6 and 7"],
+            [B_C, "Turn the overwrite confirmation back on"],
+            [B_HELP, "This help"],
+        ]) +
+        hTip("Each output takes the <b>Type</b> of its row as name, e.g. <b>diffusion_models</b>."),
     },
     {
-        title: "HOW TO USE IT",
-        html:
-            "<ul>" +
-            "<li>The <b>ComfyUI folder shortcut...</b> drop-down, at the " +
-            "top, instantly fills <b>Origin directory</b> with a standard " +
-            "folder of your installation (root, models, output, input, " +
-            "temp, user, custom_nodes), plus <b>Models (Linker)</b> when " +
-            "an extra_model_paths.yaml file exists at the ComfyUI " +
-            "root.</li>" +
-            "<li>Otherwise, paste the full path of the starting " +
-            "directory into <b>Origin directory</b> (or use " +
-            iconBadge(GEAR_ICON, VIOLET) + " to pick it with the Windows " +
-            "folder browser).</li>" +
-            "<li>Click " + iconBadge(SEARCH_ICON, VIOLET) + " to list the " +
-            "subdirectories (only those directly containing at least " +
-            "one file are shown).</li>" +
-            "<li>Click a folder in the list: it goes into <b>Selected " +
-            "directory</b>.</li>" +
-            "<li>Choose the active field (square buttons <b>1 2 3 4 " +
-            "5</b>, plus <b>6</b> and <b>7</b> when the optional fields " +
-            "are added): it receives the next selected file.</li>" +
-            "<li>Click " + iconBadge(SEARCH_ICON, PINK) + " to list the " +
-            "files of that folder. Filter them with the extension menu " +
-            "if needed (disabled automatically when the folder holds a " +
-            "single extension).</li>" +
-            "<li>Choose <b>Absolute</b> or <b>Relative</b>, then click a " +
-            "file: it is stored in the active field in that format, and " +
-            "the small <b>Type</b> field in front of it fills in " +
-            'automatically when the path contains a "models" folder (it ' +
-            "takes the name of the next folder, e.g. " +
-            "<b>diffusion_models</b>). That field stays editable by " +
-            "hand. If the main field already holds a value, a " +
-            "confirmation is asked before overwriting it, with a " +
-            "<b>Don't ask again</b> box to turn it off. While it is " +
-            "off, a " +
-            iconBadge('<b style="color:#f0c98a;font-size:10px;">C</b>', "#5a3d1a", true) +
-            " icon appears between the Absolute/Relative switch and " +
-            "the help button (?) to turn it back on.</li>" +
-            "<li>" + iconBadge(DOWNLOAD_ICON, PINK, true) + " exports a " +
-            ".txt file with one line per filled numbered field (empty " +
-            'fields are skipped): "N - Type : field content", e.g. ' +
-            '"1 - diffusion_models : MyFolder\\myfile.safetensors".</li>' +
-            "<li>" + iconBadge(UPLOAD_ICON, PINK, true) + ", right next " +
-            "to it, reloads a .txt file in the same format to fill the " +
-            "fields automatically: for each number found, the matching " +
-            "<b>Type</b> and main fields are filled with the values read " +
-            "(overwriting their content, without confirmation). If a " +
-            "number is missing from the file, or one of the two values " +
-            "is empty on its line, that field is simply cleared. A " +
-            "filled line 6 or 7 automatically adds the matching " +
-            "optional field if it is missing.</li>" +
-            "</ul>",
+        id: "folders", title: "Choosing folders", icon: FOLDER_ICON, color: VIOLET,
+        html: hList([
+            "<b>ComfyUI folder shortcut...</b> fills <b>Origin directory</b> with a folder of your " +
+            "installation: root, models, output, input, temp, user, custom_nodes.",
+            "<b>Models (Linker)</b> is added when an <b>extra_model_paths.yaml</b> file exists at the ComfyUI root.",
+            B_GEAR + " opens the Windows folder browser; you can also paste the path by hand.",
+            B_DIRS + " lists the subfolders that directly contain at least one file.",
+            "A click on a folder puts it in <b>Selected directory</b>; " + B_FILES + " then lists its files.",
+            "The extension menu filters the files. It is greyed out when the folder holds a single extension.",
+        ]) +
+        hNote("<b>.json</b>, <b>.info</b>, <b>.md</b> and <b>.sha*</b> files are never listed."),
     },
     {
-        title: "NUMBERED FIELDS 1 TO 5",
-        html:
-            "<p>The square buttons choose which field receives the next " +
-            "selection. Only one field is active at a time.</p>" +
-            "<p>A field's content is fixed when you click the file: if " +
-            "you then switch between <b>Absolute</b> and " +
-            "<b>Relative</b> to fill another field, the fields already " +
-            "filled keep their own format.</p>" +
-            "<p>Each numbered field is preceded by a small <b>Type</b> " +
-            'field: it fills in automatically by looking for a "models" ' +
-            "segment in the path (origin + subdirectory) and taking the " +
-            "name of the folder that follows it (e.g. " +
-            "<b>diffusion_models</b>). It stays empty when no " +
-            '"models" segment is found, and can be edited by hand.</p>' +
-            "<p>The fields remain editable by hand if needed. " +
-            iconBadge(TRASH_ICON, "#6b2b2b") + " to the right of each " +
-            "field clears it immediately (without confirmation), along " +
-            "with its <b>Type</b> field.</p>",
+        id: "fields", title: "Numbered fields", icon: FIELDS_ICON, color: PINK,
+        html: hList([
+            "The square buttons choose the field that receives the next file. Only one is active at a time.",
+            "<b>Absolute</b> / <b>Relative</b> sets the format of the path written at the click.",
+            "A filled field keeps its format, even if you switch the mode to fill another one.",
+            "The fields can also be typed or edited by hand.",
+            B_TRASH + " clears the field and its <b>Type</b> at once, without confirmation.",
+        ]) +
+        hCard("Overwriting a filled field", [
+            ["⚠️", "A confirmation is asked before a file replaces a value."],
+            ["☑️", "<b>Don't ask again</b> turns the confirmation off for this node."],
+            [B_C, "Shown while it is off: click it to turn the confirmation back on."],
+        ]),
     },
     {
-        title: "OPTIONAL FIELDS 6 AND 7",
-        html:
-            "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">+</b>', PINK, true) +
-            ", below the fields, adds one extra field at a time: first " +
-            "field <b>6</b> with the <b>Option 1</b> output, then on the " +
-            "next click field <b>7</b> with the <b>Option 2</b> output. " +
-            "The button disappears once both are added.</p>" +
-            "<p>" + iconBadge('<b style="color:#fff;font-size:12px;">&minus;</b>', "#6b2b2b", true) +
-            " removes the last added field, with its content and its " +
-            "output. If that output is connected to another node, a " +
-            "confirmation is asked before deleting the link(s).</p>",
+        id: "type", title: "Type field", icon: TAG_ICON, color: ORANGE,
+        html: hList([
+            "The small <b>Type</b> field in front of each field fills in when a file is picked.",
+            "It takes the folder that follows <b>models</b> in the path, e.g. <b>.../models/loras</b> gives " +
+            "<b>loras</b>.",
+            "Without a <b>models</b> folder it takes the last folder of the path.",
+            "It can be edited by hand. It has no output of its own.",
+        ]) +
+        hTip("The Type also names the output of its row: see <b>Outputs</b>."),
     },
     {
-        title: "OUTPUTS",
-        html:
-            "<p><b>unused 1</b> to <b>unused 5</b> &mdash; the path " +
-            "stored in fields 1 to 5 (the number matches the field).</p>" +
-            "<p><b>Option 1</b> / <b>Option 2</b> &mdash; present only " +
-            "when optional fields 6 / 7 have been added.</p>" +
-            "<p><b>Type</b> &mdash; the outputs are \"wildcard\" " +
-            "outputs: they connect to any input type, but the value " +
-            "passed is always a string.</p>" +
-            "<p><b>Automatic name</b> &mdash; when a file is selected, " +
-            "each output takes the text of the <b>Type</b> field of its " +
-            "row (e.g. <b>diffusion_models</b>), and follows it if you " +
-            "edit that Type by hand. Identical Types are numbered in " +
-            "output order: <b>loras (1)</b>, <b>loras (2)</b>. An empty " +
-            "Type gives back the default name.</p>" +
-            "<p><b>Rename an output</b> &mdash; double-click its name on " +
-            "the right side of the node: an input box opens " +
-            "(<b>Enter</b> or a click elsewhere to validate, <b>Esc</b> " +
-            "to cancel). A name typed by hand is kept: the automatic " +
-            "name no longer replaces it. Clear the name to go back to " +
-            "the automatic name. Also available by right-clicking the " +
-            "node, then <b>Rename output \"...\"</b>. Either way, only " +
-            "the displayed label changes (e.g. <b>Models</b>), not the " +
-            "technical name ComfyUI uses at execution. The new name is " +
-            "saved with the workflow.</p>",
+        id: "options", title: "Optional fields", icon: PLUS_ICON, color: PINK,
+        html: hSteps([
+            B_PLUS + " under the fields adds field <b>6</b> with the <b>Option 1</b> output.",
+            "A second click adds field <b>7</b> with the <b>Option 2</b> output. The button then disappears.",
+            B_MINUS + " removes the last added field, with its content and its output.",
+        ]) +
+        hList([
+            "One field at a time, only when you ask for it.",
+            "If the output to remove is connected, a confirmation is asked before the link(s) are deleted.",
+            "The number of added fields is saved with the workflow.",
+        ]),
+    },
+    {
+        id: "outputs", title: "Outputs", icon: OUTPUT_ICON, color: GREEN,
+        html: hList([
+            "<b>unused 1</b> to <b>unused 5</b>: the path of fields 1 to 5 (the number matches the field).",
+            "<b>Option 1</b> / <b>Option 2</b>: fields 6 and 7, when they are added.",
+            "Wildcard outputs: they connect to any input, but the value passed is always a text string.",
+        ]) +
+        hCard("Output names", [
+            ["🏷️", "<b>Automatic</b>: each output takes the <b>Type</b> of its row and follows it."],
+            ["🔢", "Identical Types are numbered in output order: <b>loras (1)</b>, <b>loras (2)</b>."],
+            ["✏️", "<b>Double-click</b> a name to rename it (Enter or a click elsewhere validates, Esc cancels)."],
+            ["📌", "A name typed by hand is kept. Clear it to go back to the automatic name."],
+        ]) +
+        hNote("only the displayed name changes; the right-click menu <b>Rename output \"...\"</b> does the same."),
+    },
+    {
+        id: "txt", title: "Export and import", icon: DOWNLOAD_ICON, color: PINK,
+        html: hCard("Fields file (.txt)", [
+            [B_DOWNLOAD, "Exports <b>multifileselect_fields.txt</b>, one line per filled field."],
+            [B_UPLOAD, "Imports a file in the same format and fills the fields, without confirmation."],
+        ]) +
+        hCode("1 - diffusion_models : MyFolder\\model.safetensors\n2 - loras : MyFolder\\style.safetensors") +
+        hList([
+            "Format: <b>N - Type : field content</b>.",
+            "A number missing from the file, or an empty value, clears that field.",
+            "A filled line 6 or 7 adds the optional field automatically.",
+        ]),
+    },
+    {
+        id: "limits", title: "Good to know", icon: INFO_ICON, color: TITLE_COLOR,
+        html: hList([
+            B_GEAR + " uses the Windows folder dialog; on other systems paste the path.",
+            "A node saved before an update keeps its old output names until it is recreated.",
+            "The value of an output is a text string: a node waiting for an image or a model will refuse it " +
+            "at run time.",
+        ]),
     },
 ];
+
+// Rubriques en francais : memes id que HELP_SECTIONS (icone et couleur
+// reprises de la version anglaise ; une rubrique absente s'affiche en anglais).
+const TIP_FR = "Astuce :";
+const NOTE_FR = "Remarque :";
+const HELP_SECTIONS_FR = [
+    {
+        id: "start", title: "Démarrage rapide",
+        html: hSteps([
+            "Remplissez <b>Origin directory</b> : choisissez un dossier dans <b>ComfyUI folder shortcut...</b>, " +
+            "collez un chemin, ou parcourez avec " + B_GEAR + ".",
+            "Cliquez sur " + B_DIRS + " et choisissez un dossier dans la liste, puis cliquez sur " + B_FILES +
+            " pour lister ses fichiers.",
+            "Choisissez le champ actif (" + B_FIELD(1) + " à " + B_FIELD(5) + "), <b>Absolute</b> ou " +
+            "<b>Relative</b>, puis cliquez sur un fichier : son chemin va dans ce champ et sort sur sa sortie.",
+        ]) +
+        hCard("Boutons du noeud", [
+            [B_GEAR, "Choisir le répertoire d'origine avec l'explorateur Windows"],
+            [B_DIRS, "Lister les sous-dossiers du répertoire d'origine"],
+            [B_FILES, "Lister les fichiers du répertoire sélectionné"],
+            [B_DOWNLOAD, "Exporter les champs remplis (.txt)"],
+            [B_UPLOAD, "Importer un fichier de champs (.txt)"],
+            [B_TRASH, "Vider un champ et son Type"],
+            [B_PLUS + " " + B_MINUS, "Ajouter / retirer les champs optionnels 6 et 7"],
+            [B_C, "Réactiver la confirmation avant écrasement"],
+            [B_HELP, "Cette aide"],
+        ]) +
+        hTip("Chaque sortie prend comme nom le <b>Type</b> de sa ligne, ex. <b>diffusion_models</b>.", TIP_FR),
+    },
+    {
+        id: "folders", title: "Choisir les dossiers",
+        html: hList([
+            "<b>ComfyUI folder shortcut...</b> remplit <b>Origin directory</b> avec un dossier de votre " +
+            "installation : root, models, output, input, temp, user, custom_nodes.",
+            "<b>Models (Linker)</b> s'ajoute quand un fichier <b>extra_model_paths.yaml</b> existe à la racine " +
+            "de ComfyUI.",
+            B_GEAR + " ouvre l'explorateur Windows ; vous pouvez aussi coller le chemin à la main.",
+            B_DIRS + " liste les sous-dossiers qui contiennent directement au moins un fichier.",
+            "Un clic sur un dossier le place dans <b>Selected directory</b> ; " + B_FILES +
+            " liste alors ses fichiers.",
+            "Le menu d'extension filtre les fichiers. Il est grisé quand le dossier n'a qu'une seule extension.",
+        ]) +
+        hNote("les fichiers <b>.json</b>, <b>.info</b>, <b>.md</b> et <b>.sha*</b> ne sont jamais listés.", NOTE_FR),
+    },
+    {
+        id: "fields", title: "Champs numérotés",
+        html: hList([
+            "Les boutons carrés choisissent le champ qui reçoit le prochain fichier. Un seul est actif à la fois.",
+            "<b>Absolute</b> / <b>Relative</b> fixe le format du chemin écrit au clic.",
+            "Un champ rempli garde son format, même si vous changez de mode pour en remplir un autre.",
+            "Les champs peuvent aussi être tapés ou modifiés à la main.",
+            B_TRASH + " vide le champ et son <b>Type</b> d'un coup, sans confirmation.",
+        ]) +
+        hCard("Écraser un champ rempli", [
+            ["⚠️", "Une confirmation est demandée avant qu'un fichier remplace une valeur."],
+            ["☑️", "<b>Don't ask again</b> désactive la confirmation pour ce noeud."],
+            [B_C, "Affiché tant qu'elle est désactivée : cliquez pour la réactiver."],
+        ]),
+    },
+    {
+        id: "type", title: "Champ Type",
+        html: hList([
+            "Le petit champ <b>Type</b> devant chaque champ se remplit au choix d'un fichier.",
+            "Il prend le dossier qui suit <b>models</b> dans le chemin, ex. <b>.../models/loras</b> donne " +
+            "<b>loras</b>.",
+            "Sans dossier <b>models</b>, il prend le dernier dossier du chemin.",
+            "Il se modifie à la main. Il n'a pas de sortie propre.",
+        ]) +
+        hTip("Le Type donne aussi son nom à la sortie de sa ligne : voir <b>Sorties</b>.", TIP_FR),
+    },
+    {
+        id: "options", title: "Champs optionnels",
+        html: hSteps([
+            B_PLUS + " sous les champs ajoute le champ <b>6</b> avec la sortie <b>Option 1</b>.",
+            "Un deuxième clic ajoute le champ <b>7</b> avec la sortie <b>Option 2</b>. Le bouton disparaît alors.",
+            B_MINUS + " retire le dernier champ ajouté, avec son contenu et sa sortie.",
+        ]) +
+        hList([
+            "Un champ à la fois, seulement à votre demande.",
+            "Si la sortie à retirer est connectée, une confirmation est demandée avant de supprimer le(s) lien(s).",
+            "Le nombre de champs ajoutés est sauvegardé avec le workflow.",
+        ]),
+    },
+    {
+        id: "outputs", title: "Sorties",
+        html: hList([
+            "<b>unused 1</b> à <b>unused 5</b> : le chemin des champs 1 à 5 (le numéro correspond au champ).",
+            "<b>Option 1</b> / <b>Option 2</b> : les champs 6 et 7, quand ils sont ajoutés.",
+            "Sorties « joker » : elles se branchent sur n'importe quelle entrée, mais la valeur transmise est " +
+            "toujours du texte.",
+        ]) +
+        hCard("Noms des sorties", [
+            ["🏷️", "<b>Automatique</b> : chaque sortie prend le <b>Type</b> de sa ligne et le suit."],
+            ["🔢", "Les Types identiques sont numérotés dans l'ordre : <b>loras (1)</b>, <b>loras (2)</b>."],
+            ["✏️", "<b>Double-clic</b> sur un nom pour le renommer (Entrée ou clic ailleurs valide, Échap annule)."],
+            ["📌", "Un nom saisi à la main est conservé. Videz-le pour revenir au nom automatique."],
+        ]) +
+        hNote("seul le nom affiché change ; le menu clic droit <b>Rename output \"...\"</b> fait la même chose.",
+            NOTE_FR),
+    },
+    {
+        id: "txt", title: "Export et import",
+        html: hCard("Fichier de champs (.txt)", [
+            [B_DOWNLOAD, "Exporte <b>multifileselect_fields.txt</b>, une ligne par champ rempli."],
+            [B_UPLOAD, "Importe un fichier au même format et remplit les champs, sans confirmation."],
+        ]) +
+        hCode("1 - diffusion_models : MonDossier\\modele.safetensors\n2 - loras : MonDossier\\style.safetensors") +
+        hList([
+            "Format : <b>N - Type : contenu du champ</b>.",
+            "Un numéro absent du fichier, ou une valeur vide, vide ce champ.",
+            "Une ligne 6 ou 7 remplie ajoute automatiquement le champ optionnel.",
+        ]),
+    },
+    {
+        id: "limits", title: "Bon à savoir",
+        html: hList([
+            B_GEAR + " utilise l'explorateur Windows ; sur un autre système, collez le chemin.",
+            "Un noeud enregistré avant une mise à jour garde ses anciens noms de sortie tant qu'il n'est pas recréé.",
+            "La valeur d'une sortie est du texte : un noeud qui attend une image ou un modèle la refusera à " +
+            "l'exécution.",
+        ]),
+    },
+];
+
+// Textes de la fenetre d'aide et du choix de langue.
+const HELP_UI = {
+    en: {
+        name: "English", title: "Help", search: "Search help...", close: "Close (Esc)", next: "Next: ",
+        none: "No result", noneText: (q) => 'No section contains "' + q + '". Try another word.',
+        choose: "Select your language", language: "Language",
+    },
+    fr: {
+        name: "français", title: "Aide", search: "Rechercher dans l'aide...", close: "Fermer (Échap)",
+        next: "Suivant : ", none: "Aucun résultat",
+        noneText: (q) => "Aucune rubrique ne contient « " + q + " ». Essayez un autre mot.",
+        choose: "Choisissez votre langue", language: "Langue",
+    },
+};
+
+/** Rubriques dans une langue : version anglaise si la traduction manque. */
+function helpSectionsFor(lang) {
+    if (lang !== "fr") return HELP_SECTIONS;
+    const fr = Object.fromEntries(HELP_SECTIONS_FR.map((sec) => [sec.id, sec]));
+    return HELP_SECTIONS.map((sec) => (fr[sec.id] ? Object.assign({}, sec, fr[sec.id]) : sec));
+}
+
+function escapeHtml(text) {
+    return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 /**
  * Zone (coordonnees locales au noeud) de l'etiquette de la sortie i :
@@ -352,105 +554,404 @@ function positionCardNextToNode(card, container, maxWidth) {
     card.style.top = top + "px";
 }
 
+/**
+ * Fenetre d'aide : menu des rubriques a gauche, une rubrique a la fois a
+ * droite, recherche, precedente / suivante, choix de la langue (EN/FR).
+ * Placee a cote du noeud (positionCardNextToNode).
+ */
 function buildHelpOverlay(container) {
     const overlay = document.createElement("div");
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.background = "transparent";
-    overlay.style.zIndex = "10000";
-    overlay.style.display = "none";
-    overlay.style.fontFamily = "sans-serif";
-
-    const card = document.createElement("div");
-    card.style.position = "fixed";
-    card.style.background = "#181818";
-    card.style.color = "#e6e6e6";
-    card.style.width = "min(560px, 92vw)";
-    card.style.maxHeight = "80vh";
-    card.style.overflowY = "auto";
-    card.style.borderRadius = "10px";
-    card.style.padding = "20px 22px";
-    card.style.boxShadow = "0 10px 40px rgba(0,0,0,0.5)";
-    card.style.border = "1px solid #2a2a2a";
-
-    const header = document.createElement("div");
-    header.style.display = "flex";
-    header.style.alignItems = "center";
-    header.style.justifyContent = "space-between";
-    header.style.marginBottom = "12px";
-
-    const titleWrap = document.createElement("div");
-    const breadcrumb = document.createElement("div");
-    breadcrumb.textContent = "UTILS / FILE / MULTIFILES SELECT";
-    breadcrumb.style.fontSize = "10px";
-    breadcrumb.style.letterSpacing = "0.06em";
-    breadcrumb.style.color = TITLE_COLOR;
-    breadcrumb.style.fontWeight = "700";
-    breadcrumb.style.marginBottom = "4px";
-    const title = document.createElement("div");
-    title.textContent = "MultiFiles Select";
-    title.style.fontSize = "20px";
-    title.style.fontWeight = "700";
-    titleWrap.appendChild(breadcrumb);
-    titleWrap.appendChild(title);
-
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.textContent = "✕";
-    closeBtn.style.background = "transparent";
-    closeBtn.style.border = "none";
-    closeBtn.style.color = "#aaa";
-    closeBtn.style.fontSize = "16px";
-    closeBtn.style.cursor = "pointer";
-    closeBtn.style.lineHeight = "1";
-    closeBtn.style.padding = "4px";
-
-    header.appendChild(titleWrap);
-    header.appendChild(closeBtn);
-    card.appendChild(header);
-
-    HELP_SECTIONS.forEach((section) => {
-        const h = document.createElement("div");
-        h.textContent = section.title;
-        h.style.fontSize = "11px";
-        h.style.fontWeight = "700";
-        h.style.letterSpacing = "0.05em";
-        h.style.color = "#7fd8cf";
-        h.style.marginTop = "16px";
-        h.style.marginBottom = "6px";
-        card.appendChild(h);
-
-        const body = document.createElement("div");
-        body.innerHTML = section.html;
-        body.style.fontSize = "13px";
-        body.style.lineHeight = "1.5";
-        body.style.color = "#d8d8d8";
-        body.querySelectorAll("ul").forEach((ul) => {
-            ul.style.margin = "0";
-            ul.style.paddingLeft = "18px";
-        });
-        body.querySelectorAll("li").forEach((li) => {
-            li.style.marginBottom = "4px";
-        });
-        body.querySelectorAll("p").forEach((p) => {
-            p.style.margin = "0 0 6px 0";
-        });
-        card.appendChild(body);
+    Object.assign(overlay.style, {
+        position: "fixed", inset: "0", background: "transparent", zIndex: "10000", display: "none",
     });
-
+    const card = document.createElement("div");
+    Object.assign(card.style, {
+        position: "fixed", background: "#1e1e1e", color: "#ddd", border: "1px solid " + PINK,
+        borderRadius: "10px", boxShadow: "0 8px 28px rgba(0,0,0,0.6)", fontFamily: "sans-serif",
+        fontSize: "12px", boxSizing: "border-box", width: "min(760px, 94vw)", height: "min(560px, 84vh)",
+        display: "flex", flexDirection: "column", overflow: "hidden", padding: "0",
+    });
+    card.addEventListener("mousedown", (e) => e.stopPropagation());
+    card.addEventListener("click", (e) => e.stopPropagation());
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
-    const close = () => {
-        overlay.style.display = "none";
+    const makeHeaderButton = (icon) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.innerHTML = icon;
+        Object.assign(b.style, {
+            flex: "0 0 auto", width: "24px", height: "24px", display: "flex", alignItems: "center",
+            justifyContent: "center", background: INACTIVE_BG, border: "none", borderRadius: "4px",
+            cursor: "pointer", padding: "0",
+        });
+        return b;
     };
-    closeBtn.addEventListener("click", close);
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) close();
+
+    // En-tete : titre, langue, recherche, fermeture.
+    const header = document.createElement("div");
+    Object.assign(header.style, {
+        display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderBottom: "1px solid #333",
+    });
+    const badge = document.createElement("span");
+    badge.textContent = "?";
+    Object.assign(badge.style, {
+        width: "20px", height: "20px", borderRadius: "50%", background: PINK, color: "white",
+        fontWeight: "bold", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto",
+    });
+    const title = document.createElement("div");
+    Object.assign(title.style, {
+        fontWeight: "bold", fontSize: "14px", color: TITLE_COLOR, flex: "1", whiteSpace: "nowrap",
+        overflow: "hidden", textOverflow: "ellipsis",
+    });
+    const search = document.createElement("input");
+    search.type = "search";
+    Object.assign(search.style, {
+        width: "170px", background: "#111", color: "#ddd", border: "1px solid #0c3833", borderRadius: "8px",
+        padding: "4px 8px", fontSize: "12px", outline: "none", boxSizing: "border-box",
+    });
+    const closeBtn = makeHeaderButton(CLOSE_ICON);
+
+    // Bouton de langue (globe + code) et sa fenetre de choix.
+    const langBtn = document.createElement("button");
+    langBtn.type = "button";
+    Object.assign(langBtn.style, {
+        display: "flex", alignItems: "center", gap: "6px", background: "#111", color: "#ddd",
+        border: "1px solid #0c3833", borderRadius: "8px", padding: "3px 9px", cursor: "pointer",
+        fontSize: "12px", fontWeight: "bold", flex: "0 0 auto",
+    });
+    header.append(badge, title, langBtn, search, closeBtn);
+
+    const langPop = document.createElement("div");
+    Object.assign(langPop.style, {
+        position: "absolute", display: "none", zIndex: "2", background: "#202020", color: "#ddd",
+        border: "1px solid #3a3a3a", borderRadius: "8px", boxShadow: "0 10px 28px rgba(0,0,0,0.6)",
+        padding: "16px 20px 18px", width: "320px", boxSizing: "border-box",
+    });
+    const langArrow = document.createElement("div");
+    Object.assign(langArrow.style, {
+        position: "absolute", top: "-7px", width: "12px", height: "12px", background: "#202020",
+        borderLeft: "1px solid #3a3a3a", borderTop: "1px solid #3a3a3a", transform: "rotate(45deg)",
+    });
+    const langHead = document.createElement("div");
+    Object.assign(langHead.style, { display: "flex", alignItems: "center", marginBottom: "12px" });
+    const langTitle = document.createElement("div");
+    Object.assign(langTitle.style, { flex: "1", fontSize: "16px", color: "#eee" });
+    const langClose = makeHeaderButton(CLOSE_ICON);
+    langClose.style.background = "transparent";
+    langHead.append(langTitle, langClose);
+    const langGrid = document.createElement("div");
+    Object.assign(langGrid.style, { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" });
+    langPop.append(langArrow, langHead, langGrid);
+    card.appendChild(langPop);
+
+    // Menu des rubriques a gauche, rubrique affichee a droite.
+    const main = document.createElement("div");
+    Object.assign(main.style, { flex: "1", minHeight: "0", display: "flex" });
+    const nav = document.createElement("div");
+    Object.assign(nav.style, {
+        flex: "0 0 180px", borderRight: "1px solid #333", background: "#181818", padding: "8px 6px",
+        overflowX: "hidden", overflowY: "auto", boxSizing: "border-box",
+    });
+    const content = document.createElement("div");
+    Object.assign(content.style, {
+        flex: "1", minWidth: "0", overflowX: "hidden", overflowY: "auto", padding: "14px 18px",
+        lineHeight: "1.55", boxSizing: "border-box",
+    });
+    main.append(nav, content);
+
+    // Pied : precedente / position / suivante.
+    const footer = document.createElement("div");
+    Object.assign(footer.style, {
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px",
+        padding: "8px 14px", borderTop: "1px solid #333",
+    });
+    const navLink = () => {
+        const b = document.createElement("button");
+        b.type = "button";
+        Object.assign(b.style, {
+            background: "none", border: "none", color: TITLE_COLOR, cursor: "pointer", fontSize: "12px",
+            padding: "2px 4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+        });
+        return b;
+    };
+    const prevBtn = navLink();
+    const nextBtn = navLink();
+    const position = document.createElement("span");
+    position.style.color = "#888";
+    footer.append(prevBtn, position, nextBtn);
+    card.append(header, main, footer);
+
+    let lang = loadHelpLanguage();
+    let sections = helpSectionsFor(lang);
+    let byId = Object.fromEntries(sections.map((sec) => [sec.id, sec]));
+    let visible = sections.map((sec) => sec.id);
+    let currentId = loadHelpSection();
+
+    /** Textes de la fenetre dans la langue choisie. */
+    function applyLanguage() {
+        const ui = HELP_UI[lang];
+        sections = helpSectionsFor(lang);
+        byId = Object.fromEntries(sections.map((sec) => [sec.id, sec]));
+        visible = filterSections(sections, search.value);
+        if (visible.length && !visible.includes(currentId)) currentId = visible[0];
+        title.textContent = "MultiFiles Select — " + ui.title;
+        search.placeholder = ui.search;
+        closeBtn.title = ui.close;
+        langBtn.innerHTML = GLOBE_ICON + "<span>" + lang.toUpperCase() + "</span>";
+        langBtn.title = ui.language;
+        langTitle.textContent = ui.choose;
+        langClose.title = ui.close;
+        langGrid.innerHTML = "";
+        for (const code of HELP_LANGUAGES) {
+            const active = code === lang;
+            const item = document.createElement("button");
+            item.type = "button";
+            Object.assign(item.style, {
+                display: "flex", alignItems: "center", gap: "10px", textAlign: "left", border: "none",
+                borderLeft: "3px solid " + (active ? TITLE_COLOR : "transparent"), borderRadius: "0",
+                padding: "7px 10px", cursor: active ? "default" : "pointer", fontSize: "14px",
+                background: active ? "#173a37" : "transparent",
+            });
+            item.innerHTML = '<span style="color:#eee;font-weight:' + (active ? "bold" : "normal") +
+                ';min-width:22px">' + code.toUpperCase() + '</span><span style="color:' +
+                (active ? "#eee" : "#7fb8ff") + '">' + HELP_UI[code].name + "</span>";
+            item.addEventListener("mouseenter", () => {
+                if (!active) item.style.background = "#2a2a2a";
+            });
+            item.addEventListener("mouseleave", () => {
+                if (!active) item.style.background = "transparent";
+            });
+            item.addEventListener("click", () => {
+                closeLangPop();
+                if (active) return;
+                lang = code;
+                saveHelpLanguage(code);
+                applyLanguage();
+                renderNav();
+                renderContent();
+            });
+            langGrid.appendChild(item);
+        }
+    }
+
+    // Fenetre de langue sous le bouton, fleche pointee sur lui.
+    function openLangPop() {
+        langPop.style.display = "block";
+        const c = card.getBoundingClientRect();
+        const b = langBtn.getBoundingClientRect();
+        const w = langPop.offsetWidth;
+        const left = Math.max(8, Math.min(b.left + b.width / 2 - w / 2 - c.left, c.width - w - 8));
+        langPop.style.left = left + "px";
+        langPop.style.top = (b.bottom - c.top + 10) + "px";
+        langArrow.style.left = (b.left + b.width / 2 - c.left - left - 6) + "px";
+    }
+    function closeLangPop() {
+        langPop.style.display = "none";
+    }
+    const langOpen = () => langPop.style.display !== "none";
+    langBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (langOpen()) closeLangPop();
+        else openLangPop();
+    });
+    langClose.addEventListener("click", closeLangPop);
+    langPop.addEventListener("mousedown", (e) => e.stopPropagation());
+    card.addEventListener("mousedown", (e) => {
+        if (langOpen() && !langPop.contains(e.target) && !langBtn.contains(e.target)) closeLangPop();
     });
 
-    overlay.__reposition = () => positionCardNextToNode(card, container, 560);
-    return overlay;
+    /** Surligne les mots de la recherche dans les textes de root. */
+    function highlight(root, words) {
+        if (!words.length) return;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        for (const node of nodes) {
+            const text = node.nodeValue;
+            const matches = findMatches(text, words); // sans casse ni accents
+            if (!matches.length) continue;
+            const frag = document.createDocumentFragment();
+            let pos = 0;
+            for (const [a, b] of matches) {
+                if (a > pos) frag.appendChild(document.createTextNode(text.slice(pos, a)));
+                const mark = document.createElement("mark");
+                mark.textContent = text.slice(a, b);
+                Object.assign(mark.style, { background: ORANGE, color: "white", borderRadius: "3px", padding: "0 1px" });
+                frag.appendChild(mark);
+                pos = b;
+            }
+            if (pos < text.length) frag.appendChild(document.createTextNode(text.slice(pos)));
+            node.parentNode.replaceChild(frag, node);
+        }
+    }
+
+    function renderNav() {
+        nav.innerHTML = "";
+        if (!visible.length) {
+            const none = document.createElement("div");
+            none.textContent = HELP_UI[lang].none;
+            Object.assign(none.style, { color: "#888", padding: "6px 8px" });
+            nav.appendChild(none);
+        }
+        for (const id of visible) {
+            const sec = byId[id];
+            const active = id === currentId;
+            const item = document.createElement("button");
+            item.type = "button";
+            Object.assign(item.style, {
+                display: "flex", alignItems: "center", gap: "8px", width: "100%", textAlign: "left",
+                border: "none", borderRadius: "6px", padding: "5px 8px", margin: "0 0 2px", cursor: "pointer",
+                fontSize: "12px", background: active ? TITLE_COLOR : "transparent",
+                color: active ? "white" : "#ccc", fontWeight: active ? "bold" : "normal",
+            });
+            item.innerHTML = iconBadge(sec.icon, sec.color) + "<span>" + sec.title + "</span>";
+            item.addEventListener("mouseenter", () => {
+                if (id !== currentId) item.style.background = "#262626";
+            });
+            item.addEventListener("mouseleave", () => {
+                if (id !== currentId) item.style.background = "transparent";
+            });
+            item.addEventListener("click", () => select(id));
+            nav.appendChild(item);
+        }
+    }
+
+    function renderContent() {
+        const sec = byId[currentId];
+        content.scrollTop = 0;
+        if (!visible.length) {
+            content.innerHTML = '<div style="color:#888">' + HELP_UI[lang].noneText(escapeHtml(search.value.trim())) +
+                "</div>";
+        } else {
+            content.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:bold;' +
+                "color:" + PINK + ';margin-bottom:10px">' + iconBadge(sec.icon, sec.color) + sec.title + "</div>" +
+                sec.html;
+            highlight(content, queryWords(search.value));
+        }
+        const i = visible.indexOf(currentId);
+        const prev = i > 0 ? byId[visible[i - 1]] : null;
+        const next = i >= 0 && i < visible.length - 1 ? byId[visible[i + 1]] : null;
+        prevBtn.textContent = prev ? "‹ " + prev.title : "";
+        prevBtn.style.visibility = prev ? "visible" : "hidden";
+        nextBtn.textContent = next ? HELP_UI[lang].next + next.title + " ›" : "";
+        nextBtn.style.visibility = next ? "visible" : "hidden";
+        position.textContent = visible.length ? i + 1 + " / " + visible.length : "";
+    }
+
+    function select(id) {
+        currentId = id;
+        saveHelpSection(id);
+        renderNav();
+        renderContent();
+    }
+
+    function step(delta) {
+        const i = visible.indexOf(currentId);
+        const j = i + delta;
+        if (i >= 0 && j >= 0 && j < visible.length) select(visible[j]);
+    }
+
+    prevBtn.addEventListener("click", () => step(-1));
+    nextBtn.addEventListener("click", () => step(+1));
+    search.addEventListener("input", () => {
+        visible = filterSections(sections, search.value);
+        if (visible.length && !visible.includes(currentId)) currentId = visible[0];
+        renderNav();
+        renderContent();
+    });
+
+    // Echap ferme ; fleches = rubrique precedente / suivante (hors champ de
+    // recherche) ; les touches ne vont pas au canvas (Suppr...).
+    const onKey = (e) => {
+        if (overlay.style.display === "none") return;
+        if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            if (langOpen()) closeLangPop();
+            else close();
+            return;
+        }
+        if (e.target !== search && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            step(e.key === "ArrowLeft" ? -1 : +1);
+            return;
+        }
+        if (card.contains(e.target)) e.stopImmediatePropagation();
+    };
+
+    function close() {
+        closeLangPop();
+        overlay.style.display = "none";
+        window.removeEventListener("keydown", onKey, true);
+    }
+
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("mousedown", close);
+    return {
+        open() {
+            search.value = "";
+            if (!byId[currentId]) currentId = HELP_SECTIONS[0].id;
+            applyLanguage();
+            renderNav();
+            renderContent();
+            overlay.style.display = "block";
+            window.addEventListener("keydown", onKey, true);
+            positionCardNextToNode(card, container, 760);
+        },
+        close,
+        remove() {
+            close();
+            overlay.remove();
+        },
+    };
+}
+
+// Langue de l'aide : choix memorise, sinon langue de ComfyUI, sinon navigateur.
+const HELP_LANG_KEY = "multifileselect.helpLanguage";
+function loadHelpLanguage() {
+    let saved = null;
+    let comfy = null;
+    try {
+        saved = localStorage.getItem(HELP_LANG_KEY);
+    } catch (e) {
+        saved = null;
+    }
+    try {
+        comfy = app.ui.settings.getSettingValue("Comfy.Locale");
+    } catch (e) {
+        comfy = null;
+    }
+    return pickLanguage(saved, comfy, navigator.language);
+}
+function saveHelpLanguage(code) {
+    try {
+        localStorage.setItem(HELP_LANG_KEY, code);
+    } catch (e) {
+        // Stockage indisponible : la langue revient au choix par defaut.
+    }
+}
+
+// Derniere rubrique consultee (memoire du navigateur, facultative).
+const HELP_SECTION_KEY = "multifileselect.helpSection";
+let helpSection = null;
+function loadHelpSection() {
+    if (helpSection) return helpSection;
+    try {
+        helpSection = localStorage.getItem(HELP_SECTION_KEY);
+    } catch (e) {
+        helpSection = null;
+    }
+    return helpSection || HELP_SECTIONS[0].id;
+}
+function saveHelpSection(id) {
+    helpSection = id;
+    try {
+        localStorage.setItem(HELP_SECTION_KEY, id);
+    } catch (e) {
+        // Stockage indisponible : la rubrique est gardee pour cette session.
+    }
 }
 
 /**
@@ -1264,8 +1765,7 @@ app.registerExtension({
             let helpOverlay = null;
             helpBtn.addEventListener("click", () => {
                 if (!helpOverlay) helpOverlay = buildHelpOverlay(container);
-                helpOverlay.style.display = "block";
-                if (helpOverlay.__reposition) helpOverlay.__reposition();
+                helpOverlay.open();
             });
 
             function updateToggleUI(mode) {

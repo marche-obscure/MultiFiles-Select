@@ -106,7 +106,8 @@ workflow.
 - The fields remain editable by hand if you prefer typing a path.
 - The trash icon to the right of each field clears it (and its Type field)
   immediately, without confirmation.
-- The **?** button opens a help window describing every control.
+- The **?** button opens the help: a menu of sections (Quick start first),
+  a search field, Previous / Next, and English or French text (globe button).
 
 ## License
 
