@@ -241,6 +241,8 @@ const HELP_SECTIONS = [
     {
         id: "limits", title: "Good to know", icon: INFO_ICON, color: TITLE_COLOR,
         html: hList([
+            "Works with the classic node design and with <b>Modern Node Design (Nodes 2.0)</b>: in both, " +
+            "output names can be renamed by double-click (or the right-click menu).",
             B_GEAR + " uses the Windows folder dialog; on other systems paste the path.",
             "A node saved before an update keeps its old output names until it is recreated.",
             "The value of an output is a text string: a node waiting for an image or a model will refuse it " +
@@ -364,6 +366,8 @@ const HELP_SECTIONS_FR = [
     {
         id: "limits", title: "Bon à savoir",
         html: hList([
+            "Fonctionne avec le design classique des nœuds et avec <b>Modern Node Design (Nodes 2.0)</b> : " +
+            "dans les deux, les noms de sortie se renomment par double-clic (ou par le menu clic droit).",
             B_GEAR + " utilise l'explorateur Windows ; sur un autre système, collez le chemin.",
             "Un noeud enregistré avant une mise à jour garde ses anciens noms de sortie tant qu'il n'est pas recréé.",
             "La valeur d'une sortie est du texte : un noeud qui attend une image ou un modèle la refusera à " +
@@ -462,9 +466,25 @@ function openOutputLabelEditor(node, i) {
     if (activeOutputEditor) activeOutputEditor.close(true);
     const out = node.outputs[i];
     const ds = app.canvas.ds;
-    const scale = ds.scale || 1;
-    const canvasRect = app.canvas.canvas.getBoundingClientRect();
-    const r = outputLabelRect(node, i);
+    let scale = ds.scale || 1;
+    let box;
+    const label = vueOutputLabel(node, i);
+    if (label) {
+        // Nodes 2.0 : la sortie est un element DOM, on se cale sur son etiquette.
+        const lr = label.closest(".lg-slot").getBoundingClientRect();
+        const w = Math.max(lr.width * 0.6, 120);
+        box = { left: lr.right - w, top: lr.top, width: w, height: lr.height };
+        scale = Math.max(lr.height / 20, 0.5);
+    } else {
+        const canvasRect = app.canvas.canvas.getBoundingClientRect();
+        const r = outputLabelRect(node, i);
+        box = {
+            left: canvasRect.left + (node.pos[0] + r.x + ds.offset[0]) * scale,
+            top: canvasRect.top + (node.pos[1] + r.y + ds.offset[1]) * scale,
+            width: r.w * scale,
+            height: r.h * scale,
+        };
+    }
 
     const input = document.createElement("input");
     input.type = "text";
@@ -472,10 +492,10 @@ function openOutputLabelEditor(node, i) {
     input.placeholder = out.name;
     Object.assign(input.style, {
         position: "fixed",
-        left: canvasRect.left + (node.pos[0] + r.x + ds.offset[0]) * scale + "px",
-        top: canvasRect.top + (node.pos[1] + r.y + ds.offset[1]) * scale + "px",
-        width: r.w * scale + "px",
-        height: r.h * scale + "px",
+        left: box.left + "px",
+        top: box.top + "px",
+        width: box.width + "px",
+        height: box.height + "px",
         zIndex: "10000",
         background: "#1f1f1f",
         color: "#e6e6e6",
@@ -525,6 +545,75 @@ function openOutputLabelEditor(node, i) {
         input.select();
         input.addEventListener("blur", onBlur);
     }, 0);
+}
+
+// --------------------------------------------------------------------
+// Nodes 2.0 (rendu Vue des noeuds) : les sorties sont des elements DOM, et
+// les widgets caches restent affiches comme lignes d'entree (nom + point).
+// En mode classique, rien de ce qui suit ne s'execute.
+// --------------------------------------------------------------------
+const vueMode = () => !!(window.LiteGraph && window.LiteGraph.vueNodesMode);
+const vueNodes = new Set(); // noeuds MultiFiles Select du graphe
+const vueNodeEl = (node) => document.querySelector('[data-node-id="' + node.id + '"]');
+const vueSlotDot = (el, node, dir, i) => el.querySelector('[data-slot-key="' + node.id + "-" + dir + "-" + i + '"]');
+
+/** Etiquette DOM de la sortie i (Nodes 2.0), ou null en mode classique. */
+function vueOutputLabel(node, i) {
+    if (!vueMode()) return null;
+    const el = vueNodeEl(node);
+    const dot = el && vueSlotDot(el, node, "out", i);
+    const slot = dot && dot.closest(".lg-slot");
+    return slot ? slot.querySelector(".text-node-component-slot-text") || slot : null;
+}
+
+/** Cache les lignes des widgets caches et branche le double-clic (Nodes 2.0). */
+function syncVueNode(node) {
+    const el = vueNodeEl(node);
+    if (!el) return;
+    (node.inputs || []).forEach((inp, i) => {
+        if (!inp.widget) return;
+        const dot = vueSlotDot(el, node, "in", i);
+        const slot = dot && dot.closest(".lg-slot");
+        // Ligne du widget (grille des widgets), sinon la ligne du point.
+        const row = (slot && slot.closest(".lg-node-widgets > *")) || slot;
+        if (row && row.style.display !== "none") row.style.display = "none";
+    });
+    if (el.__mfsWired) return;
+    el.__mfsWired = true;
+    // Vue recree les lignes a chaque changement : masquer a nouveau.
+    new MutationObserver(scheduleVueSync).observe(el, { subtree: true, childList: true });
+    // Double-clic sur le nom d'une sortie : renommer.
+    el.addEventListener("dblclick", (e) => {
+        const slot = e.target.closest && e.target.closest(".lg-slot--output");
+        if (!slot || !el.contains(slot)) return;
+        const dot = slot.querySelector("[data-slot-key]");
+        const m = dot && dot.dataset.slotKey.match(/-out-(\d+)$/);
+        if (!m) return;
+        e.preventDefault();
+        e.stopPropagation();
+        openOutputLabelEditor(node, Number(m[1]));
+    }, true);
+}
+
+let vueSyncPending = false;
+function scheduleVueSync() {
+    if (vueSyncPending || !vueMode()) return;
+    vueSyncPending = true;
+    // Minuteur plutot que requestAnimationFrame (suspendu quand l'onglet est cache).
+    setTimeout(() => {
+        vueSyncPending = false;
+        vueNodes.forEach(syncVueNode);
+    }, 16);
+}
+
+// Les elements des noeuds apparaissent (ou sont recrees) apres coup.
+let vueWatcher = null;
+function watchVueNodes() {
+    if (vueWatcher) return;
+    vueWatcher = new MutationObserver(() => {
+        if (vueMode() && vueNodes.size) scheduleVueSync();
+    });
+    vueWatcher.observe(document.body, { childList: true, subtree: true });
 }
 
 /**
@@ -1185,6 +1274,10 @@ function hideWidget(node, widget) {
     widget.type = "converted-widget";
     widget.draw = () => {};
     widget.onDrawBackground = () => {};
+    // Nodes 2.0 (rendu Vue) : lit options.hidden, sinon le widget apparait
+    // comme une ligne d'entree (nom + point de connexion).
+    if (!widget.options) widget.options = {};
+    widget.options.hidden = true;
 }
 
 /**
@@ -1937,6 +2030,7 @@ app.registerExtension({
                     const idx = node.outputs.length;
                     node.addOutput(OPTION_OUTPUT_NAMES[idx - BASE_FIELDS], "*");
                 }
+                scheduleVueSync();
             }
 
             function updateOptionUI() {
@@ -2400,6 +2494,9 @@ app.registerExtension({
             };
 
             refreshFromWidgets();
+            vueNodes.add(node);
+            watchVueNodes();
+            scheduleVueSync();
             node.setSize([Math.max(node.size[0], MIN_WIDTH), Math.max(node.size[1], minHeight())]);
             node.setDirtyCanvas(true, true);
 
@@ -2419,6 +2516,8 @@ app.registerExtension({
         const onDblClick = nodeType.prototype.onDblClick;
         nodeType.prototype.onDblClick = function (e, pos) {
             const r = onDblClick ? onDblClick.apply(this, arguments) : undefined;
+            // En Nodes 2.0, le double-clic est gere sur l'element DOM du noeud.
+            if (vueMode()) return r;
             const i = hitOutputLabel(this, pos);
             if (i >= 0) openOutputLabelEditor(this, i);
             return r;
@@ -2429,6 +2528,7 @@ app.registerExtension({
             if (activeOutputEditor && activeOutputEditor.node === this) {
                 activeOutputEditor.close(false);
             }
+            vueNodes.delete(this);
             return onRemoved ? onRemoved.apply(this, arguments) : undefined;
         };
 

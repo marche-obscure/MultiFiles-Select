@@ -1,5 +1,9 @@
 # ComfyUI-MultiFileSelect
 
+[![version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmarche-obscure%2FMultiFiles-Select%2Fmain%2Fpyproject.toml&query=%24.project.version&label=version&color=097267)](pyproject.toml)
+[![Nodes 2.0](https://img.shields.io/badge/Nodes%202.0-compatible-43a047)](#compatibility)
+[![license](https://img.shields.io/badge/license-MIT-007ec6)](LICENSE)
+
 A ComfyUI custom node that lets you pick up to **5 files** (7 with the two
 optional fields) from the same origin directory without typing paths by
 hand, and store each one in its own numbered field.
@@ -7,6 +11,10 @@ hand, and store each one in its own numbered field.
 <p align="center">
   <img src="assets/screenshot.png" alt="MultiFiles Select node and its help window in ComfyUI">
 </p>
+
+## Compatibility
+
+Works with the classic node design and with **Modern Node Design (Nodes 2.0)**: in both, output names can be renamed by double-click (or the right-click menu).
 
 ## Installation
 
