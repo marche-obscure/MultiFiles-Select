@@ -32,23 +32,24 @@ function fieldOutIndex(f) {
 
 /**
  * Workflow enregistre avant model_link : insere la sortie a son index
- * (avant Option 1 / Option 2) et decale les liens et les noms manuels
- * des options. Ne fait rien si elle est deja la.
+ * (avant Option 1 / Option 2) dans les donnees sauvegardees, et decale
+ * les liens et les noms manuels des options. A appeler AVANT configure()
+ * de ComfyUI, qui renomme les sorties d'apres leur index. Ne fait rien
+ * si la sortie est deja la.
  */
-function migrateLinkOutput(node) {
-    const outs = node.outputs;
-    if (!outs || outs.length < LINK_OUTPUT) return;
-    if (outs[LINK_OUTPUT] && outs[LINK_OUTPUT].name === LINK_OUTPUT_NAME) return;
-    node.addOutput(LINK_OUTPUT_NAME, "*");
-    outs.splice(LINK_OUTPUT, 0, outs.pop());
+function migrateLinkOutput(node, info) {
+    const outs = info && info.outputs;
+    if (!Array.isArray(outs) || outs.length < LINK_OUTPUT) return;
+    if (outs.some((o) => o && o.name === LINK_OUTPUT_NAME)) return;
+    outs.splice(LINK_OUTPUT, 0, { name: LINK_OUTPUT_NAME, type: "*", links: null });
     const links = node.graph && node.graph.links;
     for (let k = LINK_OUTPUT + 1; k < outs.length; k++) {
-        for (const id of outs[k].links || []) {
+        for (const id of (outs[k] && outs[k].links) || []) {
             const l = links && (typeof links.get === "function" ? links.get(id) : links[id]);
             if (l) l.origin_slot = k;
         }
     }
-    const manual = node.properties.manualLabels;
+    const manual = info.properties && info.properties.manualLabels;
     if (manual) {
         for (let key = outs.length - 1; key > LINK_OUTPUT; key--) {
             if (manual[key]) {
@@ -2730,7 +2731,6 @@ app.registerExtension({
                         }
                     });
                 }
-                migrateLinkOutput(node);
                 refreshFromWidgets();
                 return ret;
             };
@@ -2755,6 +2755,12 @@ app.registerExtension({
         // Meme renommage, directement par double-clic sur le nom d'une
         // sortie (comme sur le noeud Switch Pixaroma) : un <input>
         // temporaire est pose par-dessus l'etiquette sur le canvas.
+        const configure = nodeType.prototype.configure;
+        nodeType.prototype.configure = function (info) {
+            migrateLinkOutput(this, info);
+            return configure.apply(this, arguments);
+        };
+
         const onDblClick = nodeType.prototype.onDblClick;
         nodeType.prototype.onDblClick = function (e, pos) {
             const r = onDblClick ? onDblClick.apply(this, arguments) : undefined;
