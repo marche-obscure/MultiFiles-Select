@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { filterSections, findMatches, queryWords, pickLanguage, HELP_LANGUAGES } from "./help_search.js";
+import { exportFileName, buildExport, parseFieldsFile } from "./fields_format.js";
 
 const NODE_NAME = "MultiFileSelect";
 
@@ -11,6 +12,8 @@ const ORANGE = "#e0793c";
 const GREEN = "#43a047";
 const INACTIVE_BG = "#2a2a2a";
 const INACTIVE_FG = "#888";
+// Fond des boutons ronds discrets (aide "?", roue du dossier de sauvegarde).
+const SETTINGS_BG = "#0c3833";
 
 // 5 champs de base + 2 champs optionnels ajoutes a la demande (bouton
 // "+"), un par un, chacun avec sa propre sortie ("Option 1", "Option 2").
@@ -97,7 +100,8 @@ const GLOBE_ICON = helpSvg(
 const CLOSE_ICON = helpSvg('<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', 14);
 
 // Badges des boutons du noeud, tels qu'ils apparaissent a l'ecran.
-const B_GEAR = iconBadge(GEAR_ICON, VIOLET);
+const B_FOLDER = iconBadge(FOLDER_ICON, VIOLET);
+const B_GEAR = iconBadge(GEAR_ICON, SETTINGS_BG, true);
 const B_DIRS = iconBadge(SEARCH_ICON, VIOLET);
 const B_FILES = iconBadge(SEARCH_ICON, PINK);
 const B_DOWNLOAD = iconBadge(DOWNLOAD_ICON, PINK, true);
@@ -140,17 +144,18 @@ const HELP_SECTIONS = [
         id: "start", title: "Quick start", icon: START_ICON, color: TITLE_COLOR,
         html: hSteps([
             "Fill <b>Origin directory</b>: pick a folder in <b>ComfyUI folder shortcut...</b>, paste a path, " +
-            "or browse with " + B_GEAR + ".",
+            "or browse with " + B_FOLDER + ".",
             "Click " + B_DIRS + " and choose a folder in the list, then click " + B_FILES + " to list its files.",
             "Choose the active field (" + B_FIELD(1) + " to " + B_FIELD(5) + "), <b>Absolute</b> or " +
             "<b>Relative</b>, then click a file: its path goes into that field and out on its output.",
         ]) +
         hCard("Buttons of the node", [
-            [B_GEAR, "Pick the origin directory with the Windows folder browser"],
+            [B_FOLDER, "Pick the origin directory with the Windows folder browser"],
             [B_DIRS, "List the subfolders of the origin directory"],
             [B_FILES, "List the files of the selected directory"],
-            [B_DOWNLOAD, "Export the filled fields (.txt)"],
-            [B_UPLOAD, "Import a fields file (.txt)"],
+            [B_DOWNLOAD, "Export the filled fields (.json)"],
+            [B_UPLOAD, "Import a fields file (.json, or an old .txt)"],
+            [B_GEAR, "Choose the save folder of the exports"],
             [B_TRASH, "Clear a field and its Type"],
             [B_PLUS + " " + B_MINUS, "Add / remove the optional fields 6 and 7"],
             [B_C, "Turn the overwrite confirmation back on"],
@@ -164,7 +169,7 @@ const HELP_SECTIONS = [
             "<b>ComfyUI folder shortcut...</b> fills <b>Origin directory</b> with a folder of your " +
             "installation: root, models, output, input, temp, user, custom_nodes.",
             "<b>Models (Linker)</b> is added when an <b>extra_model_paths.yaml</b> file exists at the ComfyUI root.",
-            B_GEAR + " opens the Windows folder browser; you can also paste the path by hand.",
+            B_FOLDER + " opens the Windows folder browser; you can also paste the path by hand.",
             B_DIRS + " lists the subfolders that directly contain at least one file.",
             "A click on a folder puts it in <b>Selected directory</b>; " + B_FILES + " then lists its files.",
             "The extension menu filters the files. It is greyed out when the folder holds a single extension.",
@@ -227,15 +232,19 @@ const HELP_SECTIONS = [
     },
     {
         id: "txt", title: "Export and import", icon: DOWNLOAD_ICON, color: PINK,
-        html: hCard("Fields file (.txt)", [
-            [B_DOWNLOAD, "Exports <b>multifileselect_fields.txt</b>, one line per filled field."],
-            [B_UPLOAD, "Imports a file in the same format and fills the fields, without confirmation."],
+        html: hCard("Fields file (.json)", [
+            [B_DOWNLOAD, "Exports the filled fields to <b>yyyyMMdd-HHmmss_multifileselect_fields.json</b>."],
+            [B_GEAR, "Sets the <b>save folder</b>: the export is written there. Without a save folder, " +
+                "the browser downloads it."],
+            [B_UPLOAD, "Imports a .json file (or an old .txt) and fills the fields, without confirmation."],
         ]) +
-        hCode("1 - diffusion_models : MyFolder\\model.safetensors\n2 - loras : MyFolder\\style.safetensors") +
+        hCode('{\n  "format": "MultiFiles Select",\n  "version": 1,\n  "fields": [\n' +
+            '    { "field": 1, "type": "diffusion_models", "path": "MyFolder\\\\model.safetensors" }\n  ]\n}') +
         hList([
-            "Format: <b>N - Type : field content</b>.",
-            "A number missing from the file, or an empty value, clears that field.",
-            "A filled line 6 or 7 adds the optional field automatically.",
+            "The date and time in the name keep a new export from overwriting an older one.",
+            "A field missing from the file, or an empty value, clears that field.",
+            "A filled field 6 or 7 adds the optional field automatically.",
+            "The save folder is kept with the node (saved in the workflow) and shown when hovering " + B_GEAR + ".",
         ]),
     },
     {
@@ -243,7 +252,7 @@ const HELP_SECTIONS = [
         html: hList([
             "Works with the classic node design and with <b>Modern Node Design (Nodes 2.0)</b>: in both, " +
             "output names can be renamed by double-click (or the right-click menu).",
-            B_GEAR + " uses the Windows folder dialog; on other systems paste the path.",
+            B_FOLDER + " and <b>Browse</b> use the Windows folder dialog; on other systems paste the path.",
             "A node saved before an update keeps its old output names until it is recreated.",
             "The value of an output is a text string: a node waiting for an image or a model will refuse it " +
             "at run time.",
@@ -260,18 +269,19 @@ const HELP_SECTIONS_FR = [
         id: "start", title: "Démarrage rapide",
         html: hSteps([
             "Remplissez <b>Origin directory</b> : choisissez un dossier dans <b>ComfyUI folder shortcut...</b>, " +
-            "collez un chemin, ou parcourez avec " + B_GEAR + ".",
+            "collez un chemin, ou parcourez avec " + B_FOLDER + ".",
             "Cliquez sur " + B_DIRS + " et choisissez un dossier dans la liste, puis cliquez sur " + B_FILES +
             " pour lister ses fichiers.",
             "Choisissez le champ actif (" + B_FIELD(1) + " à " + B_FIELD(5) + "), <b>Absolute</b> ou " +
             "<b>Relative</b>, puis cliquez sur un fichier : son chemin va dans ce champ et sort sur sa sortie.",
         ]) +
         hCard("Boutons du noeud", [
-            [B_GEAR, "Choisir le répertoire d'origine avec l'explorateur Windows"],
+            [B_FOLDER, "Choisir le répertoire d'origine avec l'explorateur Windows"],
             [B_DIRS, "Lister les sous-dossiers du répertoire d'origine"],
             [B_FILES, "Lister les fichiers du répertoire sélectionné"],
-            [B_DOWNLOAD, "Exporter les champs remplis (.txt)"],
-            [B_UPLOAD, "Importer un fichier de champs (.txt)"],
+            [B_DOWNLOAD, "Exporter les champs remplis (.json)"],
+            [B_UPLOAD, "Importer un fichier de champs (.json, ou un ancien .txt)"],
+            [B_GEAR, "Choisir le dossier de sauvegarde des exports"],
             [B_TRASH, "Vider un champ et son Type"],
             [B_PLUS + " " + B_MINUS, "Ajouter / retirer les champs optionnels 6 et 7"],
             [B_C, "Réactiver la confirmation avant écrasement"],
@@ -286,7 +296,7 @@ const HELP_SECTIONS_FR = [
             "installation : root, models, output, input, temp, user, custom_nodes.",
             "<b>Models (Linker)</b> s'ajoute quand un fichier <b>extra_model_paths.yaml</b> existe à la racine " +
             "de ComfyUI.",
-            B_GEAR + " ouvre l'explorateur Windows ; vous pouvez aussi coller le chemin à la main.",
+            B_FOLDER + " ouvre l'explorateur Windows ; vous pouvez aussi coller le chemin à la main.",
             B_DIRS + " liste les sous-dossiers qui contiennent directement au moins un fichier.",
             "Un clic sur un dossier le place dans <b>Selected directory</b> ; " + B_FILES +
             " liste alors ses fichiers.",
@@ -352,15 +362,20 @@ const HELP_SECTIONS_FR = [
     },
     {
         id: "txt", title: "Export et import",
-        html: hCard("Fichier de champs (.txt)", [
-            [B_DOWNLOAD, "Exporte <b>multifileselect_fields.txt</b>, une ligne par champ rempli."],
-            [B_UPLOAD, "Importe un fichier au même format et remplit les champs, sans confirmation."],
+        html: hCard("Fichier de champs (.json)", [
+            [B_DOWNLOAD, "Exporte les champs remplis dans <b>yyyyMMdd-HHmmss_multifileselect_fields.json</b>."],
+            [B_GEAR, "Choisit le <b>dossier de sauvegarde</b> : l'export y est écrit. Sans dossier de " +
+                "sauvegarde, le navigateur le télécharge."],
+            [B_UPLOAD, "Importe un fichier .json (ou un ancien .txt) et remplit les champs, sans confirmation."],
         ]) +
-        hCode("1 - diffusion_models : MonDossier\\modele.safetensors\n2 - loras : MonDossier\\style.safetensors") +
+        hCode('{\n  "format": "MultiFiles Select",\n  "version": 1,\n  "fields": [\n' +
+            '    { "field": 1, "type": "diffusion_models", "path": "MonDossier\\\\modele.safetensors" }\n  ]\n}') +
         hList([
-            "Format : <b>N - Type : contenu du champ</b>.",
-            "Un numéro absent du fichier, ou une valeur vide, vide ce champ.",
-            "Une ligne 6 ou 7 remplie ajoute automatiquement le champ optionnel.",
+            "La date et l'heure dans le nom évitent qu'un nouvel export écrase un ancien.",
+            "Un champ absent du fichier, ou une valeur vide, vide ce champ.",
+            "Un champ 6 ou 7 rempli ajoute automatiquement le champ optionnel.",
+            "Le dossier de sauvegarde est gardé avec le noeud (enregistré dans le workflow) et affiché au " +
+                "survol de " + B_GEAR + ".",
         ]),
     },
     {
@@ -368,7 +383,8 @@ const HELP_SECTIONS_FR = [
         html: hList([
             "Fonctionne avec le design classique des nœuds et avec <b>Modern Node Design (Nodes 2.0)</b> : " +
             "dans les deux, les noms de sortie se renomment par double-clic (ou par le menu clic droit).",
-            B_GEAR + " utilise l'explorateur Windows ; sur un autre système, collez le chemin.",
+            B_FOLDER + " et <b>Browse</b> utilisent l'explorateur Windows ; sur un autre système, collez " +
+            "le chemin.",
             "Un noeud enregistré avant une mise à jour garde ses anciens noms de sortie tant qu'il n'est pas recréé.",
             "La valeur d'une sortie est du texte : un noeud qui attend une image ou un modèle la refusera à " +
             "l'exécution.",
@@ -1253,6 +1269,152 @@ function buildSimpleConfirmOverlay(container) {
     };
 }
 
+/**
+ * Fenetre "Save folder" (roue crantee) : chemin modifiable, Browse
+ * (explorateur Windows), effacer, Cancel / OK. Avertit si le dossier
+ * n'existe pas. show(actuel, onOk(dossier)) ; dossier vide = pas de
+ * dossier de sauvegarde (l'export est telecharge par le navigateur).
+ */
+function buildSaveFolderDialog(container) {
+    const overlay = document.createElement("div");
+    Object.assign(overlay.style, {
+        position: "fixed", inset: "0", background: "transparent", zIndex: "10001", display: "none",
+        fontFamily: "sans-serif",
+    });
+    const card = document.createElement("div");
+    Object.assign(card.style, {
+        position: "fixed", background: "#181818", color: "#e6e6e6", width: "min(420px, 92vw)",
+        borderRadius: "10px", padding: "14px 16px", boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+        border: "1px solid " + PINK, boxSizing: "border-box", fontSize: "12px",
+    });
+    card.addEventListener("mousedown", (e) => e.stopPropagation());
+
+    const title = document.createElement("div");
+    title.innerHTML = iconBadge(GEAR_ICON, SETTINGS_BG, true) + " Save folder";
+    Object.assign(title.style, { fontWeight: "700", fontSize: "14px", color: TITLE_COLOR, marginBottom: "6px" });
+    const info = document.createElement("div");
+    info.textContent = "Exports (.json) are written in this folder. Empty: the browser downloads them.";
+    Object.assign(info.style, { color: "#aaa", lineHeight: "1.4", marginBottom: "10px" });
+
+    const row = document.createElement("div");
+    Object.assign(row.style, { display: "flex", gap: "6px", alignItems: "center" });
+    const input = makeTextInput("No save folder (download)", false);
+    const browseBtn = makeIconButton(VIOLET, FOLDER_ICON);
+    browseBtn.title = "Browse...";
+    const clearBtn = makeIconButton("#6b2b2b", CLOSE_ICON);
+    clearBtn.title = "Clear (no save folder)";
+    row.append(input, browseBtn, clearBtn);
+
+    const warn = document.createElement("div");
+    Object.assign(warn.style, { color: ORANGE, marginTop: "6px", minHeight: "16px" });
+
+    const btnRow = document.createElement("div");
+    Object.assign(btnRow.style, { display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "8px" });
+    const mk = (text, bg, bold) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = text;
+        Object.assign(b.style, {
+            padding: "6px 14px", borderRadius: "6px", border: "none", background: bg, color: "#fff",
+            fontSize: "11px", fontWeight: bold ? "700" : "400", cursor: "pointer",
+        });
+        return b;
+    };
+    const cancelBtn = mk("Cancel", INACTIVE_BG, false);
+    const okBtn = mk("OK", ORANGE, true);
+    btnRow.append(cancelBtn, okBtn);
+
+    card.append(title, info, row, warn, btnRow);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    let onOk = null;
+    let checkSeq = 0;
+    async function check() {
+        const path = input.value.trim();
+        const seq = ++checkSeq;
+        if (!path) {
+            warn.textContent = "";
+            return;
+        }
+        try {
+            const data = await apiGet("/multifileselect/dir_exists?path=" + encodeURIComponent(path));
+            if (seq === checkSeq) warn.textContent = data.exists ? "" : "⚠ This folder does not exist.";
+        } catch (e) {
+            if (seq === checkSeq) warn.textContent = "";
+        }
+    }
+    function close() {
+        overlay.style.display = "none";
+        onOk = null;
+        window.removeEventListener("keydown", onKey, true);
+    }
+    function confirm() {
+        const cb = onOk;
+        const value = input.value.trim();
+        close();
+        if (cb) cb(value);
+    }
+    // Les touches ne vont pas au canvas (Suppr effacerait le noeud).
+    const onKey = (e) => {
+        if (overlay.style.display === "none") return;
+        if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            close();
+        } else if (e.key === "Enter" && e.target === input) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            confirm();
+        } else if (card.contains(e.target)) {
+            e.stopImmediatePropagation();
+        }
+    };
+
+    input.addEventListener("input", check);
+    clearBtn.addEventListener("click", () => {
+        input.value = "";
+        check();
+    });
+    browseBtn.addEventListener("click", async () => {
+        browseBtn.disabled = true;
+        browseBtn.style.opacity = "0.5";
+        try {
+            const initial = input.value.trim();
+            const data = await apiGet(
+                "/multifileselect/browse_dir" + (initial ? "?initial=" + encodeURIComponent(initial) : "")
+            );
+            if (data && data.path) {
+                input.value = data.path;
+                check();
+            }
+        } catch (e) {
+            warn.textContent = "Error: " + e.message;
+        } finally {
+            browseBtn.disabled = false;
+            browseBtn.style.opacity = "1";
+        }
+    });
+    cancelBtn.addEventListener("click", close);
+    okBtn.addEventListener("click", confirm);
+    overlay.addEventListener("mousedown", (e) => {
+        if (e.target === overlay) close();
+    });
+
+    return {
+        show(current, cb) {
+            onOk = cb;
+            input.value = current || "";
+            warn.textContent = "";
+            overlay.style.display = "block";
+            window.addEventListener("keydown", onKey, true);
+            positionCardNextToNode(card, container, 420);
+            check();
+            setTimeout(() => input.focus(), 0);
+        },
+    };
+}
+
 function findWidget(node, name) {
     return node.widgets.find((w) => w.name === name);
 }
@@ -1475,7 +1637,7 @@ app.registerExtension({
             const originInput = makeTextInput("Origin directory (full path)", false);
             const originBtn = makeIconButton(VIOLET, SEARCH_ICON);
             originBtn.title = "List folders";
-            const originBrowseBtn = makeIconButton(VIOLET, GEAR_ICON);
+            const originBrowseBtn = makeIconButton(VIOLET, FOLDER_ICON);
             originBrowseBtn.title = "Browse...";
             originRow.appendChild(originInput);
             originRow.appendChild(originBrowseBtn);
@@ -1704,7 +1866,7 @@ app.registerExtension({
             const saveBtn = document.createElement("button");
             saveBtn.type = "button";
             saveBtn.innerHTML = DOWNLOAD_ICON;
-            saveBtn.title = "Download the filled fields (.txt)";
+            saveBtn.title = "Export the filled fields (.json)";
             saveBtn.style.flex = "0 0 auto";
             saveBtn.style.width = "26px";
             saveBtn.style.height = "26px";
@@ -1720,29 +1882,47 @@ app.registerExtension({
             saveBtn.style.justifyContent = "center";
             toggleRow.appendChild(saveBtn);
 
-            saveBtn.addEventListener("click", () => {
-                const lines = [];
+            // Export JSON : ecrit dans le dossier de sauvegarde (roue
+            // crantee) s'il est choisi, sinon telecharge par le navigateur.
+            saveBtn.addEventListener("click", async () => {
+                const rows = [];
                 for (let i = 1; i <= fieldCount(); i++) {
-                    const fieldValue = (fieldInputs[i].value || "").trim();
-                    if (!fieldValue) continue;
-                    const modelType = (modelTypeInputs[i].value || "").trim();
-                    lines.push(`${i} - ${modelType} : ${fieldValue}`);
+                    const path = (fieldInputs[i].value || "").trim();
+                    if (!path) continue;
+                    rows.push({ field: i, type: (modelTypeInputs[i].value || "").trim(), path });
                 }
-                if (lines.length === 0) {
+                if (rows.length === 0) {
                     status.textContent = "No filled field to export.";
                     return;
                 }
-                const text = lines.join("\n");
-                const blob = new Blob([text], { type: "text/plain" });
+                const text = buildExport(rows);
+                const name = exportFileName(new Date());
+                const folder = (node.properties.saveFolder || "").trim();
+                if (folder) {
+                    try {
+                        const res = await fetch("/multifileselect/save_export", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ folder, name, content: text }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error || `HTTP error ${res.status}`);
+                        status.textContent = `Exported (${rows.length} field(s)): ${data.path}`;
+                    } catch (e) {
+                        status.textContent = "Error: " + e.message;
+                    }
+                    return;
+                }
+                const blob = new Blob([text], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = "multifileselect_fields.txt";
+                a.download = name;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                status.textContent = `File exported (${lines.length} field(s)).`;
+                status.textContent = `File downloaded (${rows.length} field(s)).`;
             });
 
             // Bouton "televersement" : recharge un fichier .txt au meme
@@ -1755,14 +1935,14 @@ app.registerExtension({
             // interaction de l'utilisateur, une fois ces fonctions definies).
             const uploadInput = document.createElement("input");
             uploadInput.type = "file";
-            uploadInput.accept = ".txt,text/plain";
+            uploadInput.accept = ".json,.txt,application/json,text/plain";
             uploadInput.style.display = "none";
             toggleRow.appendChild(uploadInput);
 
             const uploadBtn = document.createElement("button");
             uploadBtn.type = "button";
             uploadBtn.innerHTML = UPLOAD_ICON;
-            uploadBtn.title = "Import a fields file (.txt)";
+            uploadBtn.title = "Import a fields file (.json, or an old .txt)";
             uploadBtn.style.flex = "0 0 auto";
             uploadBtn.style.width = "26px";
             uploadBtn.style.height = "26px";
@@ -1790,31 +1970,15 @@ app.registerExtension({
 
                 const reader = new FileReader();
                 reader.onload = () => {
-                    const text = String(reader.result || "");
-                    const lines = text.split(/\r?\n/);
-                    // Format attendu par ligne : "N - <model_type> :
-                    // <field_N>" (celui produit par l'export ci-dessus).
-                    // Une ligne 6 ou 7 non vide ajoute automatiquement
-                    // l'option correspondante si elle manque.
-                    // Pour chaque numero 1 a 7 : cherche la ligne
-                    // correspondante et coupe au premier ":" (le
-                    // model_type ne doit pas en contenir). Numero absent du
-                    // fichier, ou valeur vide de part et d'autre du ":" ->
-                    // le(s) champ(s) concerne(s) reste(nt) simplement vide(s).
-                    const parsed = new Array(MAX_FIELDS + 1).fill(null);
-                    for (let i = 1; i <= MAX_FIELDS; i++) {
-                        const re = new RegExp(`^\\s*${i}\\s*-\\s*(.*?)\\s*:\\s*(.*)$`);
-                        let modelType = "";
-                        let fieldValue = "";
-                        for (const line of lines) {
-                            const m = line.match(re);
-                            if (m) {
-                                modelType = (m[1] || "").trim();
-                                fieldValue = (m[2] || "").trim();
-                                break;
-                            }
-                        }
-                        parsed[i] = { modelType, fieldValue };
+                    // JSON (export actuel) ou ancien .txt ("N - Type : chemin") :
+                    // voir fields_format.js. Numero absent ou valeur vide ->
+                    // champ vide ; un champ 6 ou 7 rempli ajoute l'option.
+                    let parsed;
+                    try {
+                        parsed = parseFieldsFile(String(reader.result || ""), MAX_FIELDS);
+                    } catch (e) {
+                        status.textContent = "Error: " + e.message;
+                        return;
                     }
                     for (let i = MAX_FIELDS; i > BASE_FIELDS; i--) {
                         if (parsed[i].fieldValue || parsed[i].modelType) {
@@ -1832,6 +1996,36 @@ app.registerExtension({
                     status.textContent = "Error reading the file.";
                 };
                 reader.readAsText(file);
+            });
+
+            // Roue crantee : dossier de sauvegarde des exports
+            // (node.properties.saveFolder, garde avec le workflow).
+            const settingsBtn = document.createElement("button");
+            settingsBtn.type = "button";
+            settingsBtn.innerHTML = GEAR_ICON;
+            Object.assign(settingsBtn.style, {
+                flex: "0 0 auto", width: "26px", height: "26px", borderRadius: "50%", border: "none",
+                background: SETTINGS_BG, cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", padding: "0",
+            });
+            toggleRow.appendChild(settingsBtn);
+
+            function updateSettingsBtn() {
+                const folder = (node.properties.saveFolder || "").trim();
+                settingsBtn.title = folder
+                    ? "Save folder: " + folder
+                    : "Save folder: none (exports are downloaded)";
+            }
+            updateSettingsBtn();
+
+            let saveFolderDialog = null;
+            settingsBtn.addEventListener("click", () => {
+                if (!saveFolderDialog) saveFolderDialog = buildSaveFolderDialog(container);
+                saveFolderDialog.show(node.properties.saveFolder || "", (folder) => {
+                    node.properties.saveFolder = folder;
+                    updateSettingsBtn();
+                    status.textContent = folder ? "Save folder: " + folder : "No save folder: exports are downloaded.";
+                });
             });
 
             const helpBtn = document.createElement("button");
@@ -2473,6 +2667,7 @@ app.registerExtension({
                 // onFilePick) mais le bouton C invisible, donnant
                 // l'impression a tort que la confirmation etait cassee.
                 updateFieldOverwriteCancelBtn();
+                updateSettingsBtn();
             }
 
             const onConfigure = node.onConfigure;

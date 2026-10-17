@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-multifileselect"
 description = "ComfyUI node to pick up to 5 files from the same origin directory, each stored in its own numbered field (1 to 5) as an absolute or relative path."
-version = "1.3.0"
+version = "1.4.0"
 license = {text = "MIT"}
 
 [tool.comfy]

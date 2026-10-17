@@ -15,6 +15,7 @@ import subprocess
 import traceback
 
 from .nodes import MultiFileSelect, _join_or_empty
+from .exports import write_export
 
 
 def _safe_call(module, func_name):
@@ -230,6 +231,31 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {{
             return web.json_response({"error": str(e)}, status=500)
 
         return web.json_response({"path": path or ""})
+
+    @routes.get("/multifileselect/dir_exists")
+    async def multifileselect_dir_exists(request):
+        """Indique si le dossier 'path' existe (fenetre du dossier de sauvegarde)."""
+        path = request.rel_url.query.get("path", "").strip()
+        return web.json_response({"exists": bool(path) and os.path.isdir(path)})
+
+    @routes.post("/multifileselect/save_export")
+    async def multifileselect_save_export(request):
+        """
+        Ecrit un export de champs (.json) dans le dossier de sauvegarde :
+        corps JSON {folder, name, content}. Ne remplace jamais un fichier
+        existant (suffixe " (2)"...). Renvoie {path} ou {error}.
+        """
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"error": "Invalid request."}, status=400)
+        try:
+            path = write_export(data.get("folder", ""), data.get("name", ""), data.get("content", ""))
+        except (ValueError, FileNotFoundError) as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except OSError as e:
+            return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({"path": path})
 
     @routes.get("/multifileselect/join_path")
     async def multifileselect_join_path(request):

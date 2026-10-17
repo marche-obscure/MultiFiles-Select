@@ -34,7 +34,7 @@ No extra Python dependency is required.
 ## Usage
 
 1. **Origin directory**: paste the full path of the starting directory, or
-   use the gear icon to pick it with the Windows folder browser (Windows
+   use the folder icon to pick it with the Windows folder browser (Windows
    only). The **ComfyUI folder shortcut...** drop-down at the top fills this
    field instantly with a standard folder of your installation (root,
    models, output, input, temp, user, custom_nodes), plus
@@ -74,16 +74,32 @@ with its content and output; if that output is connected, a confirmation
 is asked before the link(s) are deleted. The number of added fields is
 saved with the workflow.
 
-### Export / import (.txt)
+### Export / import (.json)
 
-- The download icon exports `multifileselect_fields.txt`, with one line
-  per filled field: `N - <Type> : <field content>`, e.g.
-  `1 - diffusion_models : MyFolder\myfile.safetensors`.
-- The upload icon next to it reloads a file in the same format and fills
-  the fields (overwriting them without confirmation). A number missing
-  from the file, or an empty value on its line, clears the matching
-  field. A filled line 6 or 7 adds the matching optional field
-  automatically.
+- The download icon exports the filled fields to a JSON file named
+  `yyyyMMdd-HHmmss_multifileselect_fields.json` (the date keeps a new
+  export from overwriting an older one):
+
+  ```json
+  {
+    "format": "MultiFiles Select",
+    "version": 1,
+    "fields": [
+      { "field": 1, "type": "diffusion_models", "path": "MyFolder\\myfile.safetensors" }
+    ]
+  }
+  ```
+
+- **Save folder**: the gear icon, left of **?**, opens a small window to
+  choose the folder where exports are written (path, **Browse**, clear,
+  **Cancel** / **OK**; a warning shows if the folder does not exist).
+  Without a save folder, the browser downloads the export. The folder is
+  saved with the node (in the workflow) and shown when hovering the gear.
+- The upload icon next to it reloads a `.json` export (or an older `.txt`
+  file, `N - <Type> : <path>` per line) and fills the fields (overwriting
+  them without confirmation). A field missing from the file, or an empty
+  value, clears the matching field. A filled field 6 or 7 adds the
+  matching optional field automatically.
 
 ## Outputs
 
