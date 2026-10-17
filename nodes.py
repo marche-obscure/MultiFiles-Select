@@ -87,6 +87,10 @@ class MultiFileSelect:
                 "field_6": ("STRING", {"default": "", "multiline": False}),
                 "model_type_7": ("STRING", {"default": "", "multiline": False}),
                 "field_7": ("STRING", {"default": "", "multiline": False}),
+                # Dossier de sauvegarde (roue crantee), recopie ici par le
+                # JS depuis node.properties.saveFolder et renvoye sur la
+                # sortie "model_link". Masque cote JS.
+                "save_folder": ("STRING", {"default": "", "multiline": False}),
             },
         }
 
@@ -97,11 +101,13 @@ class MultiFileSelect:
     # 'run' plus bas) : le branchement peut donc quand meme echouer a
     # l'execution si le noeud en aval attend un tout autre type de
     # donnee (une image, un modele, ...) qu'une chaine.
-    # Les sorties 6 et 7 ne sont presentes sur le noeud qu'une fois
-    # l'option correspondante ajoutee (gere cote JS) ; l'ordre des
-    # sorties ne change jamais, les liens restent donc sur le bon index.
-    RETURN_TYPES = (ANY_TYPE,) * 7
-    RETURN_NAMES = tuple(f"unused {i}" for i in range(1, 6)) + ("Option 1", "Option 2")
+    # La sortie 6 ("model_link") renvoie le dossier de sauvegarde (vide
+    # s'il n'y en a pas). Les sorties 7 et 8 ("Option 1" / "Option 2") ne
+    # sont presentes sur le noeud qu'une fois l'option correspondante
+    # ajoutee (gere cote JS) ; l'ordre des sorties ne change jamais, les
+    # liens restent donc sur le bon index.
+    RETURN_TYPES = (ANY_TYPE,) * 8
+    RETURN_NAMES = tuple(f"unused {i}" for i in range(1, 6)) + ("model_link", "Option 1", "Option 2")
     FUNCTION = "run"
     CATEGORY = "utils/file"
     DESCRIPTION = (
@@ -110,7 +116,8 @@ class MultiFileSelect:
         "relative path depending on the mode active when it was "
         "selected, and returns the resulting paths (5 outputs named "
         "'unused 1' to 'unused 5', plus 'Option 1' and 'Option 2' when those optional "
-        "fields have been added). These are wildcard outputs: they "
+        "fields have been added). The 'model_link' output returns the save "
+        "folder chosen with the gear icon (empty if none). These are wildcard outputs: they "
         "connect to any input type, but the value passed is always a "
         "string. Each output can be renamed by double-clicking its name, "
         "or by right-clicking the node ('Rename output ...' menu)."
@@ -135,6 +142,7 @@ class MultiFileSelect:
         field_6="",
         model_type_7="",
         field_7="",
+        save_folder="",
     ):
         return (
             (field_1 or "").strip(),
@@ -142,6 +150,7 @@ class MultiFileSelect:
             (field_3 or "").strip(),
             (field_4 or "").strip(),
             (field_5 or "").strip(),
+            (save_folder or "").strip(),
             (field_6 or "").strip(),
             (field_7 or "").strip(),
         )

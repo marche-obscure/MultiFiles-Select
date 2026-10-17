@@ -20,6 +20,44 @@ const SETTINGS_BG = "#0c3833";
 const BASE_FIELDS = 5;
 const MAX_FIELDS = 7;
 const OPTION_OUTPUT_NAMES = ["Option 1", "Option 2"];
+// Sortie "model_link" (dossier de sauvegarde) : toujours presente, juste
+// apres les 5 sorties de base et avant les options.
+const LINK_OUTPUT = BASE_FIELDS;
+const LINK_OUTPUT_NAME = "model_link";
+
+/** Index de la sortie du champ f (1..7) : les options passent apres model_link. */
+function fieldOutIndex(f) {
+    return f <= BASE_FIELDS ? f - 1 : f;
+}
+
+/**
+ * Workflow enregistre avant model_link : insere la sortie a son index
+ * (avant Option 1 / Option 2) et decale les liens et les noms manuels
+ * des options. Ne fait rien si elle est deja la.
+ */
+function migrateLinkOutput(node) {
+    const outs = node.outputs;
+    if (!outs || outs.length < LINK_OUTPUT) return;
+    if (outs[LINK_OUTPUT] && outs[LINK_OUTPUT].name === LINK_OUTPUT_NAME) return;
+    node.addOutput(LINK_OUTPUT_NAME, "*");
+    outs.splice(LINK_OUTPUT, 0, outs.pop());
+    const links = node.graph && node.graph.links;
+    for (let k = LINK_OUTPUT + 1; k < outs.length; k++) {
+        for (const id of outs[k].links || []) {
+            const l = links && (typeof links.get === "function" ? links.get(id) : links[id]);
+            if (l) l.origin_slot = k;
+        }
+    }
+    const manual = node.properties.manualLabels;
+    if (manual) {
+        for (let key = outs.length - 1; key > LINK_OUTPUT; key--) {
+            if (manual[key]) {
+                manual[key + 1] = true;
+                delete manual[key];
+            }
+        }
+    }
+}
 // Hauteur ajoutee au noeud par option : une ligne de champ (~26px) plus
 // une ligne de sortie sur le canvas (~20px).
 const OPTION_ROW_HEIGHT = 46;
@@ -219,6 +257,7 @@ const HELP_SECTIONS = [
         id: "outputs", title: "Outputs", icon: OUTPUT_ICON, color: GREEN,
         html: hList([
             "<b>unused 1</b> to <b>unused 5</b>: the path of fields 1 to 5 (the number matches the field).",
+            "<b>model_link</b>: the save folder chosen with the gear icon (empty if none).",
             "<b>Option 1</b> / <b>Option 2</b>: fields 6 and 7, when they are added.",
             "Wildcard outputs: they connect to any input, but the value passed is always a text string.",
         ]) +
@@ -347,6 +386,7 @@ const HELP_SECTIONS_FR = [
         id: "outputs", title: "Sorties",
         html: hList([
             "<b>unused 1</b> à <b>unused 5</b> : le chemin des champs 1 à 5 (le numéro correspond au champ).",
+            "<b>model_link</b> : le dossier de sauvegarde choisi avec la roue crantée (vide s'il n'y en a pas).",
             "<b>Option 1</b> / <b>Option 2</b> : les champs 6 et 7, quand ils sont ajoutés.",
             "Sorties « joker » : elles se branchent sur n'importe quelle entrée, mais la valeur transmise est " +
             "toujours du texte.",
@@ -1549,6 +1589,7 @@ app.registerExtension({
             const originWidget = findWidget(node, "origin_dir");
             const selectedDirWidget = findWidget(node, "selected_dir");
             const outputModeWidget = findWidget(node, "output_mode");
+            const saveFolderWidget = findWidget(node, "save_folder");
             const fieldWidgets = [
                 null,
                 findWidget(node, "field_1"),
@@ -1573,6 +1614,7 @@ app.registerExtension({
             hideWidget(node, originWidget);
             hideWidget(node, selectedDirWidget);
             hideWidget(node, outputModeWidget);
+            if (saveFolderWidget) hideWidget(node, saveFolderWidget);
             for (let i = 1; i <= MAX_FIELDS; i++) {
                 hideWidget(node, fieldWidgets[i]);
                 hideWidget(node, modelTypeWidgets[i]);
@@ -2012,6 +2054,8 @@ app.registerExtension({
 
             function updateSettingsBtn() {
                 const folder = (node.properties.saveFolder || "").trim();
+                // Valeur envoyee a l'execution sur la sortie model_link.
+                if (saveFolderWidget) saveFolderWidget.value = folder;
                 settingsBtn.title = folder
                     ? "Save folder: " + folder
                     : "Save folder: none (exports are downloaded)";
@@ -2214,7 +2258,7 @@ app.registerExtension({
             // qui manquent avec leur nom "Option N".
             function syncOptionOutputs() {
                 if (!node.outputs) return;
-                const want = fieldCount();
+                const want = fieldCount() + 1;
                 while (node.outputs.length > want) {
                     const idx = node.outputs.length - 1;
                     node.disconnectOutput(idx);
@@ -2222,7 +2266,7 @@ app.registerExtension({
                 }
                 while (node.outputs.length < want) {
                     const idx = node.outputs.length;
-                    node.addOutput(OPTION_OUTPUT_NAMES[idx - BASE_FIELDS], "*");
+                    node.addOutput(idx === LINK_OUTPUT ? LINK_OUTPUT_NAME : OPTION_OUTPUT_NAMES[idx - LINK_OUTPUT - 1], "*");
                 }
                 scheduleVueSync();
             }
@@ -2264,7 +2308,7 @@ app.registerExtension({
                 setFieldValue(i, "");
                 setModelTypeValue(i, "");
                 node.properties.extraFields -= 1;
-                if (node.properties.manualLabels) delete node.properties.manualLabels[i];
+                if (node.properties.manualLabels) delete node.properties.manualLabels[fieldOutIndex(i) + 1];
                 syncOptionOutputs();
                 applyAutoLabels();
                 updateOptionUI();
@@ -2280,7 +2324,7 @@ app.registerExtension({
             removeOptionBtn.addEventListener("click", () => {
                 const i = fieldCount();
                 if (i <= BASE_FIELDS) return;
-                const out = node.outputs && node.outputs[i - 1];
+                const out = node.outputs && node.outputs[fieldOutIndex(i)];
                 const links = (out && out.links) ? out.links.length : 0;
                 const done = () => {
                     removeOption();
@@ -2356,24 +2400,26 @@ app.registerExtension({
             function applyAutoLabels() {
                 if (!node.outputs) return;
                 const manual = node.properties.manualLabels || {};
-                const count = Math.min(fieldCount(), node.outputs.length);
+                const count = fieldCount();
                 const types = [];
                 const totals = {};
                 for (let i = 1; i <= count; i++) {
-                    const t = manual[i] ? "" : (modelTypeWidgets[i].value || "").trim();
+                    const out = node.outputs[fieldOutIndex(i)];
+                    const t = (!out || manual[fieldOutIndex(i) + 1]) ? "" : (modelTypeWidgets[i].value || "").trim();
                     types[i] = t;
                     if (t) totals[t] = (totals[t] || 0) + 1;
                 }
                 const seen = {};
                 for (let i = 1; i <= count; i++) {
-                    if (manual[i]) continue;
+                    const out = node.outputs[fieldOutIndex(i)];
+                    if (!out || manual[fieldOutIndex(i) + 1]) continue;
                     const t = types[i];
                     let label;
                     if (t) {
                         seen[t] = (seen[t] || 0) + 1;
                         label = totals[t] > 1 ? `${t} (${seen[t]})` : t;
                     }
-                    node.outputs[i - 1].label = label;
+                    out.label = label;
                 }
                 node.setDirtyCanvas(true, true);
             }
@@ -2684,6 +2730,7 @@ app.registerExtension({
                         }
                     });
                 }
+                migrateLinkOutput(node);
                 refreshFromWidgets();
                 return ret;
             };

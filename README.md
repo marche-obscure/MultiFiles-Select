@@ -104,8 +104,9 @@ saved with the workflow.
 ## Outputs
 
 Five outputs named `unused 1` to `unused 5` by default: the path stored in
-fields 1 to 5 (the number matches the field), plus **Option 1** and **Option 2** when the
-optional fields are added. These are "wildcard" outputs: they can be
+fields 1 to 5 (the number matches the field), then **model_link**, which
+returns the save folder chosen with the gear icon (empty if none), plus
+**Option 1** and **Option 2** when the optional fields are added. These are "wildcard" outputs: they can be
 connected to any input type, not only STRING. The value passed at run time
 is always a string, though, so a connection can still fail at execution if
 the downstream node expects a completely different kind of data (an image,
